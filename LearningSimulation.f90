@@ -25,7 +25,7 @@ CONTAINS
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: alpha, delta
     REAL(8), DIMENSION(numExplorationParameters) :: ExplorationParameters
     INTEGER, DIMENSION(numGames), INTENT(OUT) :: converged
-    INTEGER, INTENT(OUT) :: indexLastState(lengthStates,numGames)
+    INTEGER, INTENT(OUT) :: indexLastState(LengthStates,numGames)
     REAL(8), DIMENSION(numGames), INTENT(OUT) :: timeToConvergence
     !
     ! Declaring local variable
@@ -33,12 +33,12 @@ CONTAINS
     REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
     INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
-    REAL(8) :: uIniPrice(depthState,numAgents,numGames), uExploration(2,numAgents), u(2), eps(numAgents)
+    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents), u(2), eps(numAgents)
     REAL(8) :: newq, oldq
     INTEGER :: iIters, i, j, h, iGames, iItersInStrategy, convergedGame
     INTEGER :: state, statePrime, actionPrime
     INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime
-    INTEGER :: pPrime(numAgents), p(depthState,numAgents)
+    INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies
     CHARACTER(len = 25) :: printQFileName
@@ -142,7 +142,7 @@ CONTAINS
                 pricesGridsPrime(iAgent) = PricesGrids(pPrime(iAgent),iAgent)
                 !
             END DO
-            IF (depthState .GT. 1) p(2:depthState,:) = p(1:depthState-1,:)
+            IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
             p(1,:) = pPrime
             statePrime = computeStateNumber(p)
             actionPrime = computeActionNumber(pPrime)
@@ -299,7 +299,7 @@ CONTAINS
         !
         converged(iGames) = convergedGame
         indexStrategies(:,iGames) = computeStrategyNumber(strategy)
-        indexLastState(:,iGames) = convertNumberBase(state-1,numPrices,lengthStates)
+        indexLastState(:,iGames) = convertNumberBase(state-1,numPrices,LengthStates)
         timeToConvergence(iGames) = DBLE(iIters-itersInPerfMeasPeriod)/itersPerYear
         !
         IF (convergedGame .EQ. 1) PRINT*, 'Game = ', iGames, ' converged'
@@ -325,7 +325,7 @@ CONTAINS
     DO iGames = 1, numGames
         !
         WRITE(999,999) indexLastState(:,iGames)
-    999 FORMAT(<lengthStates>(I<lengthFormatActionPrint>,1X))
+    999 FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
         !
     END DO
     CLOSE(UNIT = 999)
@@ -381,9 +381,9 @@ CONTAINS
         !
     END IF
     !
-    ! 2. Greedy with probability 1-epsilon, with exponentially decreasing epsilon
+    ! 2. & 3. Greedy with probability 1-epsilon, with exponentially decreasing epsilon
     !
-    IF (typeExplorationMechanism .EQ. 2) THEN
+    IF (typeExplorationMechanism .GE. 2) THEN
         !
         eps = EXP(-ExplorationParameters*DBLE(iIters-1)/DBLE(itersPerYear))
         !

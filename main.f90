@@ -32,7 +32,7 @@ CHARACTER(len = 50) :: ModelName, FileName
 !
 ! Opening files
 !
-ModelName = "4agents.txt"
+ModelName = "depth0_2agents.txt"
 FileName = "mod_" // ModelName
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)
@@ -90,7 +90,6 @@ IF (computePIGapToMaximum .EQ. 1) THEN
     OPEN(UNIT = 10007,FILE = FileName) 
     !
 END IF
-labelStrategies = computeStrategyLabelPrint()
 labelStates = computeStatesCodePrint()
 !
 ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -105,7 +104,7 @@ DO iModel = 1, numModels
     !
     ! Creating the PI matrix
     !
-    ALLOCATE(indexStrategies(lengthStrategies,numGames),indexLastState(lengthStates,numGames))
+    ALLOCATE(indexStrategies(lengthStrategies,numGames),indexLastState(LengthStates,numGames))
     IF (typePayoffInput .EQ. 0) CALL computePIMatricesGiven(DemandParameters,NashPrices,CoopPrices,&
         PI,NashProfits,CoopProfits, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids)

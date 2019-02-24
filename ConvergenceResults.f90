@@ -24,11 +24,11 @@ CONTAINS
     ! Declaring local variable
     !
     INTEGER :: i, j, iGame, iPeriod, iAgent, numPeriods, CycleLength
-    INTEGER :: p(depthState,numAgents), pPrime(numAgents)
-    INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(lengthStates)
-    INTEGER :: visitedStates(numStates), optimalStrategy(numStates,numAgents), &
-        lastObservedState(depthState,numAgents)
-    REAL(8) :: Profits(numGames,numAgents), visitedProfits(numStates,numAgents), AvgProfits(numGames)
+    INTEGER :: p(DepthState,numAgents), pPrime(numAgents)
+    INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
+    INTEGER :: visitedStates(numStates+1), optimalStrategy(numStates,numAgents), &
+        LastObservedPrices(DepthState,numAgents)
+    REAL(8) :: Profits(numGames,numAgents), visitedProfits(numStates+1,numAgents), AvgProfits(numGames)
     REAL(8), DIMENSION(numAgents) :: meanProfits, seProfit, meanProfitGain, seProfitGain
     REAL(8) :: meanAvgProfit, seAvgProfit, meanAvgProfitGain, seAvgProfitGain
     REAL(8) :: FreqStates(numGames,numStates), meanFreqStates(numStates)
@@ -39,7 +39,7 @@ CONTAINS
     !
     ! Initializing variables
     !
-    numPeriods = numStates          ! If different from numStates, check the dimensions of
+    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
                                     ! many of the variables above!!!
     Profits = 0.d0
     FreqStates = 0.d0
@@ -59,7 +59,7 @@ CONTAINS
     DO iGame = 1, numGames
         !
         READ(999,22) indexLastState(:,iGame)
-    22  FORMAT(<lengthStates>(I<lengthFormatActionPrint>,1X))
+    22  FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
         !
     END DO
     PRINT*, 'Read indexLastState'
@@ -74,8 +74,16 @@ CONTAINS
         OptimalStrategyVec = indexStrategies(:,iGame)
         LastStateVec = indexLastState(:,iGame)
         !
-        optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
-        lastObservedState = RESHAPE(LastStateVec, (/ depthState,numAgents /) )
+        optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /))
+        IF (DepthState0 .EQ. 0) THEN
+            !
+            LastObservedPrices = optimalStrategy
+            !
+        ELSE IF (DepthState0 .GE. 1) THEN
+            !
+            LastObservedPrices = RESHAPE(LastStateVec, (/ DepthState,numAgents /))
+            !
+        END IF
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! Convergence analysis
@@ -83,11 +91,11 @@ CONTAINS
         !
         visitedStates = 0
         visitedProfits = 0.d0
-        p = lastObservedState
+        p = LastObservedPrices
         pPrime = optimalStrategy(computeStateNumber(p),:)
         DO iPeriod = 1, numPeriods
             !
-            IF (depthState .GT. 1) p(2:depthState,:) = p(1:depthState-1,:)
+            IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
             p(1,:) = pPrime
             visitedStates(iPeriod) = computeStateNumber(p)
             DO iAgent = 1, numAgents

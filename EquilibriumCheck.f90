@@ -26,19 +26,19 @@ CONTAINS
     INTEGER, PARAMETER :: numThresPathCycleLength = 10
     INTEGER, PARAMETER :: ThresPathCycleLength(numThresPathCycleLength) = (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 /)
     INTEGER :: numPeriods, iGame, iAgent, iState, iPrice, iPeriod, iThres, i, j, PreCycleLength, CycleLength, &
-        OptimalStrategy(numStates,numAgents), p(depthState,numAgents), pPrime(numAgents), VisitedStates(numStates), &
+        OptimalStrategy(numStates,numAgents), p(DepthState,numAgents), pPrime(numAgents), VisitedStates(numStates+1), &
         OptimalPrice, PathCycleStates(numStates), lastObservedStateNumber, PathCycleLength(numGames), &
         numStatesBRAll(numAgents,numGames), numStatesBRPathCycle(numAgents,numGames), &
         numStatesEqAll(numGames), numStatesEqPathCycle(numGames), &
         IsBestReply(numStates,numAgents), &
         numImprovedPrices, ImprovedPrices(numStates), numPathCycleLength(numThresPathCycleLength)
-    REAL(8) :: DiscountFactors(0:numStates-1,numAgents), VisitedProfits(numStates), PreCycleProfit, CycleProfit, &
+    REAL(8) :: DiscountFactors(0:numStates,numAgents), VisitedProfits(numStates+1), PreCycleProfit, CycleProfit, &
         StateValueFunction(numStates,numPrices), MaxStateValueFunction, &
         freqStatesBRAll(numAgents,numGames), freqStatesBRPathCycle(numAgents,numGames), &
         freqStatesEqAll(numGames), freqStateseqPathCycle(numGames), &
         avgFreqStatesBRAll(0:numAgents,numThresPathCycleLength), avgFreqStatesBRPathCycle(0:numAgents,numThresPathCycleLength), &
         avgFreqStatesEqAll(numThresPathCycleLength), avgFreqStatesEqPathCycle(numThresPathCycleLength)
-    INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(lengthStates)
+    INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     !
     ! Beginning execution
     !
@@ -47,7 +47,7 @@ CONTAINS
     ! Initializing variables
     !
     !$ CALL OMP_SET_NUM_THREADS(numCores)
-    numPeriods = numStates          ! If different from numStates, check the dimensions of
+    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
                                     ! many of the variables above!!!
     DiscountFactors = TRANSPOSE(RESHAPE((/ (delta**iPeriod, iPeriod = 0, numPeriods-1) /),(/ numAgents,numPeriods /)))
     !
@@ -72,7 +72,7 @@ CONTAINS
     DO iGame = 1, numGames
         !
         READ(999,22) indexLastState(:,iGame)
-    22  FORMAT(<lengthStates>(I<lengthFormatActionPrint>,1X))
+    22  FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
         !
     END DO
     PRINT*, 'Read indexLastState'
@@ -96,7 +96,7 @@ CONTAINS
         !$omp end critical
         !
         optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
-        lastObservedStateNumber = computeStateNumber(RESHAPE(LastStateVec, (/ depthState,numAgents /) ))
+        lastObservedStateNumber = computeStateNumber(RESHAPE(LastStateVec, (/ DepthState,numAgents /) ))
         !
         IsBestReply = 0
         DO iAgent = 1, numAgents            ! Start of loop over agents
@@ -110,7 +110,7 @@ CONTAINS
             !
             DO iState = 1, numStates        ! Start of loop over states
                 !
-                p = RESHAPE(convertNumberBase(iState-1,numPrices,numAgents*depthState),(/ depthState,numAgents /))
+                p = RESHAPE(convertNumberBase(iState-1,numPrices,numAgents*DepthState),(/ DepthState,numAgents /))
                 pPrime = OptimalStrategy(iState,:)
                 OptimalPrice = pPrime(iAgent)
                 !
@@ -126,7 +126,7 @@ CONTAINS
                     VisitedProfits = 0.d0
                     DO iPeriod = 1, numPeriods
                         !
-                        IF (depthState .GT. 1) p(2:depthState,:) = p(1:depthState-1,:)
+                        IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
                         p(1,:) = pPrime
                         VisitedStates(iPeriod) = computeStateNumber(p)
                         VisitedProfits(iPeriod) = PI(computeActionNumber(pPrime),iAgent)
@@ -155,8 +155,8 @@ CONTAINS
                         PathCycleLength(iGame) = CycleLength
                         !
                     END IF
-                    PreCycleProfit = SUM(DiscountFactors(:PreCycleLength,iAgent)*VisitedProfits(:PreCycleLength))
-                    CycleProfit = SUM(DiscountFactors(:CycleLength,iAgent)*VisitedProfits(PreCycleLength+1:iPeriod))
+                    PreCycleProfit = SUM(DiscountFactors(0:PreCycleLength-1,iAgent)*VisitedProfits(1:PreCycleLength))
+                    CycleProfit = SUM(DiscountFactors(0:CycleLength-1,iAgent)*VisitedProfits(PreCycleLength+1:iPeriod))
                     StateValueFunction(iState,iPrice) = &
                         PreCycleProfit+delta(iAgent)**PreCycleLength*CycleProfit/(1.d0-delta(iAgent)**CycleLength)
                     !

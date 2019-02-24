@@ -25,19 +25,19 @@ CONTAINS
     !
     INTEGER, PARAMETER :: numShockPeriodsPrint = 25
     INTEGER :: PeriodsLengthPre, PeriodsLengthPost, &
-        visitedStatesPre(numStates), visitedStates(numStates), &
-        p(depthState,numAgents), pPrime(numAgents), &
+        visitedStatesPre(numStates+1), visitedStates(MAX(numShockPeriodsPrint,numStates+1)), &
+        p(DepthState,numAgents), pPrime(numAgents), &
         iGame, iAgent, iPrice, iPeriod, jAgent, &
-        optimalStrategy(numStates,numAgents), lastObservedState(depthState,numAgents), &
-        indexShockState(lengthStates), numPeriods, iThres, i, j
-    REAL(8), DIMENSION(numStates,numAgents) :: visitedPrices, visitedProfits
+        optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
+        indexShockState(LengthStates), numPeriods, iThres, i, j
+    REAL(8), DIMENSION(numStates+1,numAgents) :: visitedPrices, visitedProfits
     REAL(8), DIMENSION(numAgents) :: avgPricesPre, avgProfitsPre, avgPricesPreQ, avgProfitsPreQ
     REAL(8), DIMENSION(numPrices,numShockPeriodsPrint,numAgents,numAgents) :: &
         avgPricesShock, avgProfitsShock, avgPricesShockQ, avgProfitsShockQ
     REAL(8), DIMENSION(numPrices,numAgents,numAgents) :: &
         avgPricesPost, avgProfitsPost, avgPricesPostQ, avgProfitsPostQ
     LOGICAL :: FlagReturnedToState
-	INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(lengthStates)
+	INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     !
     ! Beginning execution
     !
@@ -47,7 +47,7 @@ CONTAINS
     !
     !$ CALL OMP_SET_NUM_THREADS(numCores)
     !
-    numPeriods = numStates          ! If different from numStates, check the dimensions of
+    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
                                     ! many of the variables above!!!
     avgPricesPre = 0.d0
     avgProfitsPre = 0.d0
@@ -77,7 +77,7 @@ CONTAINS
     DO iGame = 1, numGames
         !
         READ(999,22) indexLastState(:,iGame)
-    22  FORMAT(<lengthStates>(I<lengthFormatActionPrint>,1X))
+    22  FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
         !
     END DO
     PRINT*, 'Read indexLastState'
@@ -86,7 +86,7 @@ CONTAINS
     ! Beginning loop over games
     !
     !$omp parallel do &
-    !$omp private(OptimalStrategy,lastObservedState,visitedStatesPre,visitedPrices,visitedProfits, &
+    !$omp private(OptimalStrategy,LastObservedPrices,visitedStatesPre,visitedPrices,visitedProfits, &
     !$omp   visitedStates,p,pPrime,iPrice,iAgent,iPeriod,jAgent,indexShockState, &
     !$omp   flagReturnedToState,PeriodsLengthPre,PeriodsLengthPost,OptimalStrategyVec,LastStateVec,i) &
     !$omp firstprivate(PI,PricesGrids) &
@@ -102,7 +102,15 @@ CONTAINS
         !$omp end critical
         !
         optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
-        lastObservedState = RESHAPE(LastStateVec, (/ depthState,numAgents /) )
+        IF (DepthState0 .EQ. 0) THEN
+            !
+            LastObservedPrices = optimalStrategy
+            !
+        ELSE IF (DepthState0 .GE. 1) THEN
+            !
+            LastObservedPrices = RESHAPE(LastStateVec, (/ DepthState,numAgents /))
+            !
+        END IF
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! Pre-shock period analysis
@@ -111,13 +119,13 @@ CONTAINS
         visitedStatesPre = 0
         visitedPrices = 0.d0
         visitedProfits = 0.d0
-        p = lastObservedState
+        p = LastObservedPrices
         pPrime = optimalStrategy(computeStateNumber(p),:)
         DO iPeriod = 1, numPeriods
             !
-            IF (depthState .GT. 1) p(2:depthState,:) = p(1:depthState-1,:)
+            IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
             p(1,:) = pPrime
-            lastObservedState = p
+            LastObservedPrices = p
             visitedStatesPre(iPeriod) = computeStateNumber(p)
             DO iAgent = 1, numAgents
                 !
@@ -163,7 +171,7 @@ CONTAINS
             DO iPrice = 1, numPrices    ! Start of loop over possible deviations
                 !
                 visitedStates = 0
-                p = lastObservedState
+                p = LastObservedPrices
                 !
                 ! Price selection in shock period:
                 ! Agent "iAgent" selects the each price in turn,
@@ -173,9 +181,9 @@ CONTAINS
                 pPrime(iAgent) = iPrice
                 !
                 flagReturnedToState = .FALSE.
-                DO iPeriod = 1, numPeriods
+                DO iPeriod = 1, MAX(numShockPeriodsPrint,numPeriods)
                     !
-                    IF (depthState .GT. 1) p(2:depthState,:) = p(1:depthState-1,:)
+                    IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
                     p(1,:) = pPrime
                     visitedStates(iPeriod) = computeStateNumber(p)
                     DO jAgent = 1, numAgents
@@ -201,7 +209,7 @@ CONTAINS
                     IF ((.NOT.(flagReturnedToState)) .AND. &
                         (ANY(visitedStatesPre(:PeriodsLengthPre) .EQ. visitedStates(iPeriod)))) THEN
                         !
-                        indexShockState = RESHAPE(p,(/ lengthStates /))
+                        indexShockState = RESHAPE(p,(/ LengthStates /))
                         flagReturnedToState = .TRUE.
                         !
                     END IF
@@ -211,7 +219,7 @@ CONTAINS
                     IF ((iPeriod .GE. 2) .AND. (.NOT.(flagReturnedToState)) .AND. &
                         (ANY(visitedStates(:iPeriod-1) .EQ. visitedStates(iPeriod)))) THEN
                         !
-                        indexShockState = RESHAPE(p,(/ lengthStates /))
+                        indexShockState = RESHAPE(p,(/ LengthStates /))
                         flagReturnedToState = .TRUE.
                         !
                     END IF
@@ -226,12 +234,12 @@ CONTAINS
                 visitedPrices = 0.d0
                 visitedProfits = 0.d0
                 visitedStates = 0
-                p = RESHAPE(indexShockState, (/ depthState,numAgents /) )
+                p = RESHAPE(indexShockState, (/ DepthState,numAgents /) )
                 pPrime = optimalStrategy(computeStateNumber(p),:)
                 !
                 DO iPeriod = 1, numPeriods
                     !
-                    IF (depthState .GT. 1) p(2:depthState,:) = p(1:depthState-1,:)
+                    IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
                     p(1,:) = pPrime
                     visitedStates(iPeriod) = computeStateNumber(p)
                     DO jAgent = 1, numAgents

@@ -27,7 +27,7 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    INTEGER :: iAgent, iPrice, p(depthState,numAgents), iAction, iNash, iDevNash
+    INTEGER :: iAgent, iPrice, p(DepthState,numAgents), iAction, iNash, iDevNash
     INTEGER :: devPrices(numAgents)
     REAL(8) :: den
     !
@@ -109,8 +109,8 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
-    REAL(8), INTENT(IN) :: u(depthState,numAgents)
-    INTEGER, DIMENSION(depthState,numAgents), INTENT(OUT) :: p
+    REAL(8), INTENT(IN) :: u(DepthState,numAgents)
+    INTEGER, DIMENSION(DepthState,numAgents), INTENT(OUT) :: p
     INTEGER, INTENT(OUT) :: stateNumber, actionNumber
     !
     ! Beginning execution
@@ -132,7 +132,7 @@ CONTAINS
     ! Declaring dummy variables
     !
     INTEGER, INTENT(IN) :: numGames
-    REAL(8), INTENT(OUT) :: uIniPrice(depthState,numAgents,numGames)
+    REAL(8), INTENT(OUT) :: uIniPrice(DepthState,numAgents,numGames)
     INTEGER, INTENT(INOUT) :: idum
     INTEGER, INTENT(INOUT) :: iv(32)
     INTEGER, INTENT(INOUT) :: iy
@@ -148,7 +148,7 @@ CONTAINS
     !
     DO iGame = 1, numGames
         !
-        DO iDepth = 1, depthState
+        DO iDepth = 1, DepthState
             !
             DO iAgent = 1, numAgents
                 !
@@ -210,7 +210,7 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
-    INTEGER, DIMENSION(depthState,numAgents), INTENT(IN) :: p
+    INTEGER, DIMENSION(DepthState,numAgents), INTENT(IN) :: p
     !
     ! Declaring function's type
     !
@@ -218,12 +218,20 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    INTEGER, DIMENSION(lengthStates) :: stateVector
+    INTEGER, DIMENSION(LengthStates) :: stateVector
     !
     ! Beginning execution
     !
-    stateVector = RESHAPE(TRANSPOSE(p),(/ lengthStates /))
-    computeStateNumber = 1+SUM(cStates*(stateVector-1))
+    IF (DepthState0 .GT. 0) THEN
+        !
+        stateVector = RESHAPE(TRANSPOSE(p),(/ LengthStates /))
+        computeStateNumber = 1+SUM(cStates*(stateVector-1))
+        !
+    ELSE IF (DepthState0 .EQ. 0) THEN
+        !
+        computeStateNumber = 1
+        !
+    END IF
     !
     ! Ending execution and returning control
     !
@@ -272,7 +280,7 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    INTEGER :: i, j, indexState(lengthStates)
+    INTEGER :: i, j, indexState(LengthStates)
     CHARACTER(len = lengthFormatActionPrint) :: tmp
     CHARACTER(len = lengthStatesPrint) :: labelState
     !
@@ -280,9 +288,9 @@ CONTAINS
     !
     DO i = 1, numStates
         !
-        indexState = convertNumberBase(i-1,numPrices,lengthStates)
+        indexState = convertNumberBase(i-1,numPrices,LengthStates)
         !
-        DO j = 1, lengthStates
+        DO j = 1, LengthStates
             !
             WRITE(tmp,'(I0.<lengthFormatActionPrint>)') indexState(j)
             IF (j .EQ. 1) THEN 

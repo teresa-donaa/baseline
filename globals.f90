@@ -21,7 +21,7 @@ INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     itersInPerfMeasPeriod, printExp, printQ, &
     PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, numNashStrategies, &
     numPrintStrategies, typeExplorationMechanism, useNashStrategies, useOtherStrategies, &
-    depthState, lengthStates, lengthStatesPrint, numStates, lengthStrategies, &
+    DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
     lengthStrategiesPrint, typePayoffInput, &
     numAgents, numActions, numDemandParameters, numOtherStrategies, &
     numExplorationParameters, computeQLearningResults, computeConvergenceResults, computePreShockCycles, &
@@ -43,7 +43,7 @@ REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     avgTTCMostObsStrategies(:), alpha(:), delta(:), & 
     meanProfit(:), seProfit(:), meanProfitGain(:), seProfitGain(:), DemandParameters(:), &
     NashMarketShares(:), CoopMarketShares(:), PricesGrids(:,:), MExpl(:), ExplorationParameters(:)
-CHARACTER(len = :), ALLOCATABLE :: labelStates(:), labelStrategies(:)
+CHARACTER(len = :), ALLOCATABLE :: labelStates(:)
 LOGICAL, ALLOCATABLE :: maskConverged(:), IsTot(:,:), IsOnPath(:,:), IsBRAllStates(:,:), &
     IsBRonPath(:,:), IsEqAllStates(:,:), IsEqonPath(:,:) 
 !
@@ -85,7 +85,8 @@ CONTAINS
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) numAgents
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) depthState
+    READ(unitNumber,*) DepthState0
+    DepthState = MAX(1,DepthState0)          ! Accomodates the DepthState = 0 case
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) numPrices
     READ(unitNumber,'(1X)')
@@ -101,11 +102,11 @@ CONTAINS
     !
     maxIters = maxNumYears*itersPerYear
     itersInPerfMeasPeriod = INT(PerfMeasPeriodLength*itersPerYear)
-    lengthStates = numAgents*depthState
-    lengthStatesPrint = lengthStates*(1+FLOOR(LOG10(DBLE(numPrices))))+lengthStates-1
-    numStates = numPrices**(numAgents*depthState)
+    LengthStates = MAX(1,numAgents*DepthState0)
+    lengthStatesPrint = LengthStates*(1+FLOOR(LOG10(DBLE(numPrices))))+LengthStates-1
+    numStates = numPrices**(numAgents*DepthState0)
     numActions = numPrices**numAgents   ! Actions contain combinations of prices;
-                                        ! they coincide with states when depthState == 1
+                                        ! they coincide with states when DepthState == 1
     lengthStrategies = numAgents*numStates
     lengthFormatActionPrint = FLOOR(LOG10(DBLE(numPrices)))+1
     lengthStrategiesPrint = lengthFormatActionPrint*lengthStrategies+lengthStrategies-1
@@ -133,7 +134,8 @@ CONTAINS
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) typeExplorationMechanism
     IF (typeExplorationMechanism .EQ. 1) numExplorationParameters = 1*numAgents           ! Constant 
-    IF (typeExplorationMechanism .EQ. 2) numExplorationParameters = 1*numAgents           ! Exponentially decreasing
+    IF (typeExplorationMechanism .EQ. 2) numExplorationParameters = 1*numAgents           ! Exponentially decreasing (beta)
+    IF (typeExplorationMechanism .EQ. 3) numExplorationParameters = 1*numAgents           ! Exponentially decreasing (m)
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) typePayoffInput
     IF (typePayoffInput .EQ. 0) numDemandParameters = numActions                ! Pi1 matrix
@@ -164,11 +166,11 @@ CONTAINS
     ! Allocating matrices and vectors
     !
     ALLOCATE(indexActions(numActions,numAgents), &
-        indexStates(numStates,lengthStates), &
+        indexStates(numStates,LengthStates), &
         indexEquivalentStates(numStates,numAgents), &
         timeToConvergence(numGames),vecProfit(numGames,numAgents),vecProfitQ(numGames,numAgents), &
         vecAvgProfit(numGames),vecAvgProfitQ(numGames), freqStates(numStates,numGames), &
-        converged(numGames),maskConverged(numGames),cStates(lengthStates),cActions(numAgents), &
+        converged(numGames),maskConverged(numGames),cStates(LengthStates),cActions(numAgents), &
         maxValQ(numStates,numAgents),meanFreqStates(numStates), &
         avgFreqStatesMostObsStrategies(numStates,numPrintStrategies), &
         indexPrintStrategies(lengthStrategies,numPrintStrategies), &
@@ -186,55 +188,56 @@ CONTAINS
         IsTot(numStates,numAgents), IsOnPath(numStates,numAgents), IsBRAllStates(numStates,numAgents), &
         IsBRonPath(numStates,numAgents), IsEqAllStates(numStates,numAgents), IsEqonPath(numStates,numAgents))
     ALLOCATE(CHARACTER(len = 3+lengthStatesPrint) :: labelStates(numStates))
-    ALLOCATE(CHARACTER(len = 9) :: labelStrategies(numPrintStrategies))
     !
-    cStates = (/ (numPrices**i, i = lengthStates-1, 0, -1) /)
+    cStates = (/ (numPrices**i, i = LengthStates-1, 0, -1) /)
     cActions = (/ (numPrices**i, i = numAgents-1, 0, -1) /)
     !
     ! Actions contain the most recent prices of all agents. Actions and States
-    ! coincide when depthState == 1
+    ! coincide when DepthState == 1
     !
     DO iAction = 1, numActions
         !
         indexActions(iAction,:) = convertNumberBase(iAction-1,numPrices,numAgents)
         !
     END DO
-    !
-    ! Find indexes of equivalent states, i.e. states that are the same when considered 
-    ! from the point of view of the two agents
-    ! E.g.: When numPrices = 3 and depthState = 2, state (1.2)-(1.3) for agent 1 is the same
-    ! as state (2.1)-(3.1) for agent 2
-    !
-    IF (numAgents .EQ. 2) THEN
-        !
-        ALLOCATE(switchedState(lengthStates),indA1(depthState),indA2(depthState))
-        DO iState = 1, numStates
-            !
-            indexStates(iState,:) = convertNumberBase(iState-1,numPrices,lengthStates)
-            !
-        END DO
-        !
-        indA1 = (/ (i, i = 1, lengthStates, numAgents) /)
-        indA2 = indA1+1
-        DO iState = 1, numStates
-            !
-            indexEquivalentStates(iState,1) = iState
-            switchedState(indA1) = indexStates(iState,indA2)
-            switchedState(indA2) = indexStates(iState,indA1)
-            DO jState = 1, numStates
-                !
-                IF (ALL(switchedState .EQ. indexStates(jState,:))) THEN
-                    !
-                    indexEquivalentStates(iState,2) = jState
-                    EXIT
-                    !
-                END IF
-                !
-            END DO
-            !
-        END DO
-        DEALLOCATE(switchedState,indA1,indA2)        
-    END IF
+!@SP
+    !!
+    !! Find indexes of equivalent states, i.e. states that are the same when considered 
+    !! from the point of view of the two agents
+    !! E.g.: When numPrices = 3 and DepthState = 2, state (1.2)-(1.3) for agent 1 is the same
+    !! as state (2.1)-(3.1) for agent 2
+    !!
+    !IF (numAgents .EQ. 2) THEN
+    !    !
+    !    ALLOCATE(switchedState(LengthStates),indA1(DepthState),indA2(DepthState))
+    !    DO iState = 1, numStates
+    !        !
+    !        indexStates(iState,:) = convertNumberBase(iState-1,numPrices,LengthStates)
+    !        !
+    !    END DO
+    !    !
+    !    indA1 = (/ (i, i = 1, LengthStates, numAgents) /)
+    !    indA2 = indA1+1
+    !    DO iState = 1, numStates
+    !        !
+    !        indexEquivalentStates(iState,1) = iState
+    !        switchedState(indA1) = indexStates(iState,indA2)
+    !        switchedState(indA2) = indexStates(iState,indA1)
+    !        DO jState = 1, numStates
+    !            !
+    !            IF (ALL(switchedState .EQ. indexStates(jState,:))) THEN
+    !                !
+    !                indexEquivalentStates(iState,2) = jState
+    !                EXIT
+    !                !
+    !            END IF
+    !            !
+    !        END DO
+    !        !
+    !    END DO
+    !    DEALLOCATE(switchedState,indA1,indA2)        
+    !END IF
+!@SP
     !
     ! Ending execution and returning control
     !
@@ -255,7 +258,7 @@ CONTAINS
         meanFreqStates,avgFreqStatesMostObsStrategies,labelStates,indexStates, &
         indexPrintStrategies,freqMostObsStrategies,meanProfGainMostObsStrategies, &
         meanAvgProfGainMostObsStrategies,avgTTCMostObsStrategies,NashProfits,CoopProfits, &
-        labelStrategies,alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
+        alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
         IsTot,IsOnPath,IsBRAllStates,IsBRonPath,IsEqAllStates,IsEqonPath)
@@ -285,8 +288,16 @@ CONTAINS
     !
     READ(unitNumber,*) i, printExp, printQ, alpha, MExpl, delta, &
         DemandParameters, NashPrices, CoopPrices
-    ExplorationParameters = -DBLE(itersPerYear)/DBLE(numAgents+1)* &
-        LOG(1.d0-(DBLE(numPrices-1)/DBLE(numPrices))**numAgents/(DBLE(numStates*numPrices)*MExpl))
+    IF (typeExplorationMechanism .EQ. 2) THEN
+        !
+        ExplorationParameters = MExpl
+        !
+    ELSE IF (typeExplorationMechanism .EQ. 3) THEN
+        !
+        ExplorationParameters = -DBLE(itersPerYear)/DBLE(numAgents+1)* &
+            LOG(1.d0-(DBLE(numPrices-1)/DBLE(numPrices))**numAgents/(DBLE(numStates*numPrices)*MExpl))
+        !
+    END IF
     !
     ! Ending execution and returning control
     !

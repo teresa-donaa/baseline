@@ -24,11 +24,11 @@ CONTAINS
     ! Declaring local variable
     !
     INTEGER, PARAMETER :: numPeriods = 500
-    INTEGER :: p(depthState,numAgents), pPrime(numAgents), iPeriod, jAgent, iDepth, &
-        iGame, optimalStrategy(numStates,numAgents), lastObservedState(depthState,numAgents), &
+    INTEGER :: p(DepthState,numAgents), pPrime(numAgents), iPeriod, jAgent, iDepth, &
+        iGame, optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
         i, visitedStates(numStates), pHist(numPeriods,DepthState,numAgents)
     REAL(8), DIMENSION(numPeriods,numAgents) :: Prices, Profits, avgPrices, avgProfits
-    INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(lengthStates)
+    INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     !
     ! Beginning execution
     !
@@ -65,7 +65,7 @@ CONTAINS
     DO iGame = 1, numGames
         !
         READ(999,22) indexLastState(:,iGame)
-    22  FORMAT(<lengthStates>(I<lengthFormatActionPrint>,1X))
+    22  FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
         !
     END DO
     PRINT*, 'Read indexLastState'
@@ -81,13 +81,21 @@ CONTAINS
         LastStateVec = indexLastState(:,iGame)
         !
         optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
-        lastObservedState = RESHAPE(LastStateVec, (/ depthState,numAgents /) )
+        IF (DepthState0 .EQ. 0) THEN
+            !
+            LastObservedPrices = optimalStrategy
+            !
+        ELSE IF (DepthState0 .GE. 1) THEN
+            !
+            LastObservedPrices = RESHAPE(LastStateVec, (/ DepthState,numAgents /))
+            !
+        END IF
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! Pre-shock period analysis
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         !
-        p = lastObservedState
+        p = LastObservedPrices
         pPrime = p(1,:)
         Prices = 0.d0
         Profits = 0.d0
@@ -106,7 +114,7 @@ CONTAINS
                 !
             END DO
             pPrime = optimalStrategy(visitedStates(iPeriod),:)
-            IF (depthState .GT. 1) p(2:depthState,:) = p(1:depthState-1,:)
+            IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
             p(1,:) = pPrime
             !
         END DO
@@ -114,7 +122,7 @@ CONTAINS
         DO jAgent = 1, numAgents
             !
             WRITE(100021,2) iModel, iGame, jAgent, &
-                (lastObservedState(iDepth,jAgent), iDepth = 1, DepthState), &
+                (LastObservedPrices(iDepth,jAgent), iDepth = 1, DepthState), &
                 (Prices(iPeriod,jAgent), iPeriod = 1, numPeriods), &
                 (Profits(iPeriod,jAgent), iPeriod = 1, numPeriods), &
                 ((pHist(iPeriod,iDepth,jAgent), iDepth = 1, DepthState), iPeriod = 1, numPeriods)
