@@ -40,10 +40,24 @@ CONTAINS
         pNash
     REAL(8), DIMENSION(numAgents) :: avgPricesPre, avgProfitsPre, avgPricesPreQ, avgProfitsPreQ
     REAL(8), DIMENSION(numShockPeriodsPrint,numAgents,numAgents) :: &
-        avgPricesShock, avgProfitsShock, avgPricesShockQ, avgProfitsShockQ
-    REAL(8), DIMENSION(numAgents,numAgents) :: avgPricesPost, avgProfitsPost, avgPricesPostQ, avgProfitsPostQ
+        avgPricesShock, avgProfitsShock, avgPricesShockQ, avgProfitsShockQ, &
+        avgPricesPercShock, avgProfitsPercShock, avgPricesPercShockQ, avgProfitsPercShockQ
+    REAL(8), DIMENSION(numAgents,numAgents) :: &
+        avgPricesPost, avgProfitsPost, avgPricesPostQ, avgProfitsPostQ, &
+        avgPricesPercPost, avgProfitsPercPost, avgPricesPercPostQ, avgProfitsPercPostQ
     LOGICAL :: FlagReturnedToState
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
+    REAL(8) :: AggrPricesPre, AggrDevPricesPost, AggrNonDevPricesPost, AggrProfitsPre, AggrDevProfitsPost, AggrNonDevProfitsPost, &
+        AggrDevPricesPercPost, AggrNonDevPricesPercPost, AggrDevProfitsPercPost, AggrNonDevProfitsPercPost
+    REAL(8), DIMENSION(numShockPeriodsPrint) :: &
+        AggrDevPricesShock, AggrNonDevPricesShock, AggrDevProfitsShock, AggrNonDevProfitsShock, &
+        AggrDevPricesPercShock, AggrNonDevPricesPercShock, AggrDevProfitsPercShock, AggrNonDevProfitsPercShock
+    REAL(8) :: AggrPricesPreQ, AggrDevPricesPostQ, AggrNonDevPricesPostQ, AggrProfitsPreQ, AggrDevProfitsPostQ, AggrNonDevProfitsPostQ, &
+        AggrDevPricesPercPostQ, AggrNonDevPricesPercPostQ, AggrDevProfitsPercPostQ, AggrNonDevProfitsPercPostQ
+    REAL(8), DIMENSION(numShockPeriodsPrint) :: &
+        AggrDevPricesShockQ, AggrNonDevPricesShockQ, AggrDevProfitsShockQ, AggrNonDevProfitsShockQ, &
+        AggrDevPricesPercShockQ, AggrNonDevPricesPercShockQ, AggrDevProfitsPercShockQ, AggrNonDevProfitsPercShockQ
+    REAL(8), DIMENSION(numAgents) :: PricePre, ProfitPre
     !
     ! Beginning execution
     !
@@ -65,15 +79,23 @@ CONTAINS
     avgPricesPre = 0.d0
     avgPricesShock = 0.d0
     avgPricesPost = 0.d0
+    avgPricesPercShock = 0.d0
+    avgPricesPercPost = 0.d0
     avgProfitsPre = 0.d0
     avgProfitsShock = 0.d0
     avgProfitsPost = 0.d0
+    avgProfitsPercShock = 0.d0
+    avgProfitsPercPost = 0.d0
     avgPricesPreQ = 0.d0
     avgPricesShockQ = 0.d0
     avgPricesPostQ = 0.d0
+    avgPricesPercShockQ = 0.d0
+    avgPricesPercPostQ = 0.d0
     avgProfitsPreQ = 0.d0
     avgProfitsShockQ = 0.d0
     avgProfitsPostQ = 0.d0
+    avgProfitsPercShockQ = 0.d0
+    avgProfitsPercPostQ = 0.d0
     !
     ! Reading strategies and states at convergence from file
     !
@@ -101,11 +123,14 @@ CONTAINS
     !$omp parallel do &
     !$omp private(OptimalStrategy,LastObservedPrices,visitedStatesPre,visitedPrices, &
     !$omp   visitedProfits,p,pPrime,iPeriod,iAgent,pNash,OptimalStrategyVec,LastStateVec, &
-    !$omp   visitedStates,iPrice,tmp1,flagReturnedToState,jAgent,indexShockState) &
-    !$omp firstprivate(PI,PricesGrids,i) &
+    !$omp   visitedStates,iPrice,tmp1,flagReturnedToState,jAgent,indexShockState,i, &
+    !$omp   PricePre,ProfitPre) &
+    !$omp firstprivate(PI,PricesGrids) &
     !$omp reduction(+ : FreqPeriodLengthPre, &
     !$omp   avgPricesPre,avgProfitsPre,avgPricesShock,avgProfitsShock,avgPricesPost,avgProfitsPost, &
     !$omp   avgPricesPreQ,avgProfitsPreQ,avgPricesShockQ,avgProfitsShockQ,avgPricesPostQ,avgProfitsPostQ, &
+    !$omp   avgPricesPercShock,avgProfitsPercShock,avgPricesPercPost,avgProfitsPercPost, &
+    !$omp   avgPricesPercShockQ,avgProfitsPercShockQ,avgPricesPercPostQ,avgProfitsPercPostQ, &
     !$omp   FreqPeriodLengthShock,FreqPunishmentStrategy,FreqPeriodLengthPost)
     DO iGame = 1, numGames        ! Start of loop aver games
         !
@@ -157,18 +182,12 @@ CONTAINS
                     iPeriod-MINVAL(MINLOC((visitedStatesPre(:iPeriod-1)-visitedStatesPre(iPeriod))**2))
                 FreqPeriodLengthPre(MIN(numThresPeriodsLength,PeriodsLengthPre)) = &
                     FreqPeriodLengthPre(MIN(numThresPeriodsLength,PeriodsLengthPre))+1
-                avgPricesPre = avgPricesPre+ &
-                    SUM(visitedPrices(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/ &
-                        DBLE(PeriodsLengthPre)
-                avgPricesPreQ = avgPricesPreQ+ &
-                    (SUM(visitedPrices(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/ &
-                        DBLE(PeriodsLengthPre))**2
-                avgProfitsPre = avgProfitsPre+ &
-                    SUM(visitedProfits(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/ &
-                        DBLE(PeriodsLengthPre)
-                avgProfitsPreQ = avgProfitsPreQ+ &
-                    (SUM(visitedProfits(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/ &
-                        DBLE(PeriodsLengthPre))**2
+                PricePre = SUM(visitedPrices(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre)
+                avgPricesPre = avgPricesPre+PricePre
+                avgPricesPreQ = avgPricesPreQ+PricePre**2
+                ProfitPre = SUM(visitedProfits(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre)
+                avgProfitsPre = avgProfitsPre+ProfitPre
+                avgProfitsPreQ = avgProfitsPreQ+ProfitPre**2
                 EXIT
                 !
             END IF
@@ -210,10 +229,19 @@ CONTAINS
                             avgPricesShock(iPeriod,iAgent,jAgent)+PricesGrids(pPrime(jAgent),jAgent)
                         avgPricesShockQ(iPeriod,iAgent,jAgent) = & 
                             avgPricesShockQ(iPeriod,iAgent,jAgent)+PricesGrids(pPrime(jAgent),jAgent)**2
+                        avgPricesPercShock(iPeriod,iAgent,jAgent) = & 
+                            avgPricesPercShock(iPeriod,iAgent,jAgent)+(PricesGrids(pPrime(jAgent),jAgent)/PricePre(jAgent))
+                        avgPricesPercShockQ(iPeriod,iAgent,jAgent) = & 
+                            avgPricesPercShockQ(iPeriod,iAgent,jAgent)+(PricesGrids(pPrime(jAgent),jAgent)/PricePre(jAgent))**2
+                        !
                         avgProfitsShock(iPeriod,iAgent,jAgent) = & 
                             avgProfitsShock(iPeriod,iAgent,jAgent)+PI(computeActionNumber(pPrime),jAgent)
                         avgProfitsShockQ(iPeriod,iAgent,jAgent) = & 
                             avgProfitsShockQ(iPeriod,iAgent,jAgent)+PI(computeActionNumber(pPrime),jAgent)**2
+                        avgProfitsPercShock(iPeriod,iAgent,jAgent) = & 
+                            avgProfitsPercShock(iPeriod,iAgent,jAgent)+(PI(computeActionNumber(pPrime),jAgent)/ProfitPre(jAgent))
+                        avgProfitsPercShockQ(iPeriod,iAgent,jAgent) = & 
+                            avgProfitsPercShockQ(iPeriod,iAgent,jAgent)+(PI(computeActionNumber(pPrime),jAgent)/ProfitPre(jAgent))**2
                         !
                     END IF
                     !
@@ -292,18 +320,25 @@ CONTAINS
                         iPeriod-MINVAL(MINLOC((visitedStates(:iPeriod-1)-visitedStates(iPeriod))**2))
                     FreqPeriodLengthPost(iAgent,MIN(numThresPeriodsLength,PeriodsLengthPost)) = &
                         FreqPeriodLengthPost(iAgent,MIN(numThresPeriodsLength,PeriodsLengthPost))+1
+                    !
                     avgPricesPost(iAgent,:) = avgPricesPost(iAgent,:)+ &
-                        SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
-                            DBLE(PeriodsLengthPost)
+                        SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)
                     avgPricesPostQ(iAgent,:) = avgPricesPostQ(iAgent,:)+ &
-                        (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
-                            DBLE(PeriodsLengthPost))**2
+                        (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost))**2
+                    avgPricesPercPost(iAgent,:) = avgPricesPercPost(iAgent,:)+ &
+                        (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)/PricePre)
+                    avgPricesPercPostQ(iAgent,:) = avgPricesPercPostQ(iAgent,:)+ &
+                        (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)/PricePre)**2
+                    !
                     avgProfitsPost(iAgent,:) = avgProfitsPost(iAgent,:)+ &
-                        SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
-                            DBLE(PeriodsLengthPost)
+                        SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)
                     avgProfitsPostQ(iAgent,:) = avgProfitsPostQ(iAgent,:)+ &
-                        (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
-                            DBLE(PeriodsLengthPost))**2
+                        (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost))**2
+                    avgProfitsPercPost(iAgent,:) = avgProfitsPercPost(iAgent,:)+ &
+                        (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)/ProfitPre)
+                    avgProfitsPercPostQ(iAgent,:) = avgProfitsPercPostQ(iAgent,:)+ &
+                        (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)/ProfitPre)**2
+                    !
                     EXIT
                     !
                 END IF
@@ -334,12 +369,143 @@ CONTAINS
     avgProfitsShock = avgProfitsShock/DBLE(numGames)
     avgPricesPost = avgPricesPost/DBLE(numGames)
     avgProfitsPost = avgProfitsPost/DBLE(numGames)
-    avgPricesPreQ = SQRT((avgPricesPreQ/DBLE(numGames)-avgPricesPre**2)/DBLE(numGames))
-    avgProfitsPreQ = SQRT((avgProfitsPreQ/DBLE(numGames)-avgProfitsPre**2)/DBLE(numGames))
-    avgPricesShockQ = SQRT((avgPricesShockQ/DBLE(numGames)-avgPricesShock**2)/DBLE(numGames))
-    avgProfitsShockQ = SQRT((avgProfitsShockQ/DBLE(numGames)-avgProfitsShock**2)/DBLE(numGames))
-    avgPricesPostQ = SQRT((avgPricesPostQ/DBLE(numGames)-avgPricesPost**2)/DBLE(numGames))
-    avgProfitsPostQ = SQRT((avgProfitsPostQ/DBLE(numGames)-avgProfitsPost**2)/DBLE(numGames))
+    avgPricesPercShock = avgPricesPercShock/DBLE(numGames)
+    avgProfitsPercShock = avgProfitsPercShock/DBLE(numGames)
+    avgPricesPercPost = avgPricesPercPost/DBLE(numGames)
+    avgProfitsPercPost = avgProfitsPercPost/DBLE(numGames)
+    avgPricesPreQ = avgPricesPreQ/DBLE(numGames)
+    avgProfitsPreQ = avgProfitsPreQ/DBLE(numGames)
+    avgPricesShockQ = avgPricesShockQ/DBLE(numGames)
+    avgProfitsShockQ = avgProfitsShockQ/DBLE(numGames)
+    avgPricesPostQ = avgPricesPostQ/DBLE(numGames)
+    avgProfitsPostQ = avgProfitsPostQ/DBLE(numGames)
+    avgPricesPercShockQ = avgPricesPercShockQ/DBLE(numGames)
+    avgProfitsPercShockQ = avgProfitsPercShockQ/DBLE(numGames)
+    avgPricesPercPostQ = avgPricesPercPostQ/DBLE(numGames)
+    avgProfitsPercPostQ = avgProfitsPercPostQ/DBLE(numGames)
+    !
+    ! Computing aggregate (deviating and non-deviating) averages of prices and profits
+    !
+    AggrPricesPre = SUM(avgPricesPre)/DBLE(numAgents)
+    AggrProfitsPre = SUM(avgProfitsPre)/DBLE(numAgents)
+    AggrPricesPreQ = SUM(avgPricesPreQ)/DBLE(numAgents)
+    AggrProfitsPreQ = SUM(avgProfitsPreQ)/DBLE(numAgents)
+    !
+    AggrDevPricesShock = 0.d0
+    AggrDevProfitsShock = 0.d0
+    AggrDevPricesShockQ = 0.d0
+    AggrDevProfitsShockQ = 0.d0
+    AggrDevPricesPercShock = 0.d0
+    AggrDevProfitsPercShock = 0.d0
+    AggrDevPricesPercShockQ = 0.d0
+    AggrDevProfitsPercShockQ = 0.d0
+    DO iPeriod = 1, numShockPeriodsPrint
+        !
+        DO iAgent = 1, numAgents
+            !
+            AggrDevPricesShock(iPeriod) = AggrDevPricesShock(iPeriod)+avgPricesShock(iPeriod,iAgent,iAgent)
+            AggrDevProfitsShock(iPeriod) = AggrDevProfitsShock(iPeriod)+avgProfitsShock(iPeriod,iAgent,iAgent)
+            AggrDevPricesShockQ(iPeriod) = AggrDevPricesShockQ(iPeriod)+avgPricesShockQ(iPeriod,iAgent,iAgent)
+            AggrDevProfitsShockQ(iPeriod) = AggrDevProfitsShockQ(iPeriod)+avgProfitsShockQ(iPeriod,iAgent,iAgent)
+            !
+            AggrDevPricesPercShock(iPeriod) = AggrDevPricesPercShock(iPeriod)+avgPricesPercShock(iPeriod,iAgent,iAgent)
+            AggrDevProfitsPercShock(iPeriod) = AggrDevProfitsPercShock(iPeriod)+avgProfitsPercShock(iPeriod,iAgent,iAgent)
+            AggrDevPricesPercShockQ(iPeriod) = AggrDevPricesPercShockQ(iPeriod)+avgPricesPercShockQ(iPeriod,iAgent,iAgent)
+            AggrDevProfitsPercShockQ(iPeriod) = AggrDevProfitsPercShockQ(iPeriod)+avgProfitsPercShockQ(iPeriod,iAgent,iAgent)
+            !
+        END DO
+        AggrNonDevPricesShock(iPeriod) = (SUM(avgPricesShock(iPeriod,:,:))-AggrDevPricesShock(iPeriod))/DBLE(numAgents*(numAgents-1))
+        AggrDevPricesShock(iPeriod) = AggrDevPricesShock(iPeriod)/DBLE(numAgents)
+        AggrNonDevProfitsShock(iPeriod) = (SUM(avgProfitsShock(iPeriod,:,:))-AggrDevProfitsShock(iPeriod))/DBLE(numAgents*(numAgents-1))
+        AggrDevProfitsShock(iPeriod) = AggrDevProfitsShock(iPeriod)/DBLE(numAgents)
+        AggrNonDevPricesShockQ(iPeriod) = (SUM(avgPricesShockQ(iPeriod,:,:))-AggrDevPricesShockQ(iPeriod))/DBLE(numAgents*(numAgents-1))
+        AggrDevPricesShockQ(iPeriod) = AggrDevPricesShockQ(iPeriod)/DBLE(numAgents)
+        AggrNonDevProfitsShockQ(iPeriod) = (SUM(avgProfitsShockQ(iPeriod,:,:))-AggrDevProfitsShockQ(iPeriod))/DBLE(numAgents*(numAgents-1))
+        AggrDevProfitsShockQ(iPeriod) = AggrDevProfitsShockQ(iPeriod)/DBLE(numAgents)
+        !
+        AggrNonDevPricesPercShock(iPeriod) = (SUM(avgPricesPercShock(iPeriod,:,:))-AggrDevPricesPercShock(iPeriod))/DBLE(numAgents*(numAgents-1))
+        AggrDevPricesPercShock(iPeriod) = AggrDevPricesPercShock(iPeriod)/DBLE(numAgents)
+        AggrNonDevProfitsPercShock(iPeriod) = (SUM(avgProfitsPercShock(iPeriod,:,:))-AggrDevProfitsPercShock(iPeriod))/DBLE(numAgents*(numAgents-1))
+        AggrDevProfitsPercShock(iPeriod) = AggrDevProfitsPercShock(iPeriod)/DBLE(numAgents)
+        AggrNonDevPricesPercShockQ(iPeriod) = (SUM(avgPricesPercShockQ(iPeriod,:,:))-AggrDevPricesPercShockQ(iPeriod))/DBLE(numAgents*(numAgents-1))
+        AggrDevPricesPercShockQ(iPeriod) = AggrDevPricesPercShockQ(iPeriod)/DBLE(numAgents)
+        AggrNonDevProfitsPercShockQ(iPeriod) = (SUM(avgProfitsPercShockQ(iPeriod,:,:))-AggrDevProfitsPercShockQ(iPeriod))/DBLE(numAgents*(numAgents-1))
+        AggrDevProfitsPercShockQ(iPeriod) = AggrDevProfitsPercShockQ(iPeriod)/DBLE(numAgents)
+        !
+    END DO
+    !
+    AggrDevPricesPost = 0.d0
+    AggrDevProfitsPost = 0.d0
+    AggrDevPricesPostQ = 0.d0
+    AggrDevProfitsPostQ = 0.d0
+    AggrDevPricesPercPost = 0.d0
+    AggrDevProfitsPercPost = 0.d0
+    AggrDevPricesPercPostQ = 0.d0
+    AggrDevProfitsPercPostQ = 0.d0
+    DO iAgent = 1, numAgents
+        !
+        AggrDevPricesPost = AggrDevPricesPost+avgPricesPost(iAgent,iAgent)
+        AggrDevProfitsPost = AggrDevProfitsPost+avgProfitsPost(iAgent,iAgent)
+        AggrDevPricesPostQ = AggrDevPricesPostQ+avgPricesPostQ(iAgent,iAgent)
+        AggrDevProfitsPostQ = AggrDevProfitsPostQ+avgProfitsPostQ(iAgent,iAgent)
+        !
+        AggrDevPricesPercPost = AggrDevPricesPercPost+avgPricesPercPost(iAgent,iAgent)
+        AggrDevProfitsPercPost = AggrDevProfitsPercPost+avgProfitsPercPost(iAgent,iAgent)
+        AggrDevPricesPercPostQ = AggrDevPricesPercPostQ+avgPricesPercPostQ(iAgent,iAgent)
+        AggrDevProfitsPercPostQ = AggrDevProfitsPercPostQ+avgProfitsPercPostQ(iAgent,iAgent)
+        !
+    END DO
+    AggrNonDevPricesPost = (SUM(avgPricesPost(:,:))-AggrDevPricesPost)/DBLE(numAgents*(numAgents-1))
+    AggrDevPricesPost = AggrDevPricesPost/DBLE(numAgents)
+    AggrNonDevProfitsPost = (SUM(avgProfitsPost(:,:))-AggrDevProfitsPost)/DBLE(numAgents*(numAgents-1))
+    AggrDevProfitsPost = AggrDevProfitsPost/DBLE(numAgents)
+    AggrNonDevPricesPostQ = (SUM(avgPricesPostQ(:,:))-AggrDevPricesPostQ)/DBLE(numAgents*(numAgents-1))
+    AggrDevPricesPostQ = AggrDevPricesPostQ/DBLE(numAgents)
+    AggrNonDevProfitsPostQ = (SUM(avgProfitsPostQ(:,:))-AggrDevProfitsPostQ)/DBLE(numAgents*(numAgents-1))
+    AggrDevProfitsPostQ = AggrDevProfitsPostQ/DBLE(numAgents)
+    !
+    AggrNonDevPricesPercPost = (SUM(avgPricesPercPost(:,:))-AggrDevPricesPercPost)/DBLE(numAgents*(numAgents-1))
+    AggrDevPricesPercPost = AggrDevPricesPercPost/DBLE(numAgents)
+    AggrNonDevProfitsPercPost = (SUM(avgProfitsPercPost(:,:))-AggrDevProfitsPercPost)/DBLE(numAgents*(numAgents-1))
+    AggrDevProfitsPercPost = AggrDevProfitsPercPost/DBLE(numAgents)
+    AggrNonDevPricesPercPostQ = (SUM(avgPricesPercPostQ(:,:))-AggrDevPricesPercPostQ)/DBLE(numAgents*(numAgents-1))
+    AggrDevPricesPercPostQ = AggrDevPricesPercPostQ/DBLE(numAgents)
+    AggrNonDevProfitsPercPostQ = (SUM(avgProfitsPercPostQ(:,:))-AggrDevProfitsPercPostQ)/DBLE(numAgents*(numAgents-1))
+    AggrDevProfitsPercPostQ = AggrDevProfitsPercPostQ/DBLE(numAgents)
+    !
+    ! Computing standard errors
+    !
+    avgPricesPreQ = SQRT((avgPricesPreQ-avgPricesPre**2)/DBLE(numGames))
+    avgProfitsPreQ = SQRT((avgProfitsPreQ-avgProfitsPre**2)/DBLE(numGames))
+    avgPricesShockQ = SQRT((avgPricesShockQ-avgPricesShock**2)/DBLE(numGames))
+    avgProfitsShockQ = SQRT((avgProfitsShockQ-avgProfitsShock**2)/DBLE(numGames))
+    avgPricesPostQ = SQRT((avgPricesPostQ-avgPricesPost**2)/DBLE(numGames))
+    avgProfitsPostQ = SQRT((avgProfitsPostQ-avgProfitsPost**2)/DBLE(numGames))
+    !
+    AggrPricesPreQ = SQRT((AggrPricesPreQ-AggrPricesPre**2)/DBLE(numGames))
+    AggrProfitsPreQ = SQRT((AggrProfitsPreQ-AggrProfitsPre**2)/DBLE(numGames))
+    DO iPeriod = 1, numShockPeriodsPrint
+        !
+        AggrNonDevPricesShockQ(iPeriod) = SQRT((AggrNonDevPricesShockQ(iPeriod)-AggrNonDevPricesShock(iPeriod)**2)/DBLE(numGames))
+        AggrDevPricesShockQ(iPeriod) = SQRT((AggrDevPricesShockQ(iPeriod)-AggrDevPricesShock(iPeriod)**2)/DBLE(numGames))
+        AggrNonDevProfitsShockQ(iPeriod) = SQRT((AggrNonDevProfitsShockQ(iPeriod)-AggrNonDevProfitsShock(iPeriod)**2)/DBLE(numGames))
+        AggrDevProfitsShockQ(iPeriod) = SQRT((AggrDevProfitsShockQ(iPeriod)-AggrDevProfitsShock(iPeriod)**2)/DBLE(numGames))
+        !
+        AggrNonDevPricesPercShockQ(iPeriod) = SQRT((AggrNonDevPricesPercShockQ(iPeriod)-AggrNonDevPricesPercShock(iPeriod)**2)/DBLE(numGames))
+        AggrDevPricesPercShockQ(iPeriod) = SQRT((AggrDevPricesPercShockQ(iPeriod)-AggrDevPricesPercShock(iPeriod)**2)/DBLE(numGames))
+        AggrNonDevProfitsPercShockQ(iPeriod) = SQRT((AggrNonDevProfitsPercShockQ(iPeriod)-AggrNonDevProfitsPercShock(iPeriod)**2)/DBLE(numGames))
+        AggrDevProfitsPercShockQ(iPeriod) = SQRT((AggrDevProfitsPercShockQ(iPeriod)-AggrDevProfitsPercShock(iPeriod)**2)/DBLE(numGames))
+        !
+    END DO
+    AggrNonDevPricesPostQ = SQRT((AggrNonDevPricesPostQ-AggrNonDevPricesPost**2)/DBLE(numGames))
+    AggrDevPricesPostQ = SQRT((AggrDevPricesPostQ-AggrDevPricesPost**2)/DBLE(numGames))
+    AggrNonDevProfitsPostQ = SQRT((AggrNonDevProfitsPostQ-AggrNonDevProfitsPost**2)/DBLE(numGames))
+    AggrDevProfitsPostQ = SQRT((AggrDevProfitsPostQ-AggrDevProfitsPost**2)/DBLE(numGames))
+    !
+    AggrNonDevPricesPercPostQ = SQRT((AggrNonDevPricesPercPostQ-AggrNonDevPricesPercPost**2)/DBLE(numGames))
+    AggrDevPricesPercPostQ = SQRT((AggrDevPricesPercPostQ-AggrDevPricesPercPost**2)/DBLE(numGames))
+    AggrNonDevProfitsPercPostQ = SQRT((AggrNonDevProfitsPercPostQ-AggrNonDevProfitsPercPost**2)/DBLE(numGames))
+    AggrDevProfitsPercPostQ = SQRT((AggrDevProfitsPercPostQ-AggrDevProfitsPercPost**2)/DBLE(numGames))    
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Printing averages and descriptive statistics
@@ -353,6 +519,14 @@ CONTAINS
             (i, i = 1, numAgents), (i, i = 1, numAgents),  &
             (i, i = 1, numAgents), (i, i = 1, numAgents),  &
             ((i, j, j = 1, numPrices), i = 1, numAgents), &
+            (iPeriod, iPeriod = 1, numShockPeriodsPrint), (iPeriod, iPeriod = 1, numShockPeriodsPrint), &
+            (iPeriod, iPeriod = 1, numShockPeriodsPrint), (iPeriod, iPeriod = 1, numShockPeriodsPrint), &
+            (iPeriod, iPeriod = 1, numShockPeriodsPrint), (iPeriod, iPeriod = 1, numShockPeriodsPrint), &
+            (iPeriod, iPeriod = 1, numShockPeriodsPrint), (iPeriod, iPeriod = 1, numShockPeriodsPrint), &
+            (iPeriod, iPeriod = 1, numShockPeriodsPrint), (iPeriod, iPeriod = 1, numShockPeriodsPrint), &
+            (iPeriod, iPeriod = 1, numShockPeriodsPrint), (iPeriod, iPeriod = 1, numShockPeriodsPrint), &
+            (iPeriod, iPeriod = 1, numShockPeriodsPrint), (iPeriod, iPeriod = 1, numShockPeriodsPrint), &
+            (iPeriod, iPeriod = 1, numShockPeriodsPrint), (iPeriod, iPeriod = 1, numShockPeriodsPrint), &
             (ThresPeriodsLength(i), i = 1, numThresPeriodsLength), &
             ((iAgent, ThresPeriodsLength(i), i = 1, numThresPeriodsLength), iAgent = 1, numAgents), &
             ((iAgent, ThresPeriodsLength(i), i = 1, numThresPeriodsLength), iAgent = 1, numAgents), &
@@ -373,6 +547,22 @@ CONTAINS
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
             <numAgents>('NashMktSh', I1, ' '), <numAgents>('CoopMktSh', I1, ' '), &
             <numAgents>(<numPrices>('Ag', I1, 'Price', I2.2, ' ')), &
+            'AggrPricePre ', <numShockPeriodsPrint>('AggrDevPriceShockPer', I3.3, ' '), 'AggrDevPricePost ', &
+                <numShockPeriodsPrint>('AggrNonDevPriceShockPer', I3.3, ' '), 'AggrNonDevPricePost ', &
+            'seAggrPricePre ', <numShockPeriodsPrint>('seAggrDevPriceShockPer', I3.3, ' '), 'seAggrDevPricePost ', &
+                <numShockPeriodsPrint>('seAggrNonDevPriceShockPer', I3.3, ' '), 'seAggrNonDevPricePost ', &
+            <numShockPeriodsPrint>('AggrDevPricePercShockPer', I3.3, ' '), 'AggrDevPricePercPost ', &
+                <numShockPeriodsPrint>('AggrNonDevPricePercShockPer', I3.3, ' '), 'AggrNonDevPricePercPost ', &
+            <numShockPeriodsPrint>('seAggrDevPricePercShockPer', I3.3, ' '), 'seAggrDevPricePercPost ', &
+                <numShockPeriodsPrint>('seAggrNonDevPricePercShockPer', I3.3, ' '), 'seAggrNonDevPricePercPost ', &
+            'AggrProfitPre ', <numShockPeriodsPrint>('AggrDevProfitShockPer', I3.3, ' '), 'AggrDevProfitPost ', &
+                <numShockPeriodsPrint>('AggrNonDevProfitShockPer', I3.3, ' '), 'AggrNonDevProfitPost ', &
+            'seAggrProfitPre ', <numShockPeriodsPrint>('seAggrDevProfitShockPer', I3.3, ' '), 'seAggrDevProfitPost ', &
+                <numShockPeriodsPrint>('seAggrNonDevProfitShockPer', I3.3, ' '), 'seAggrNonDevProfitPost ', &
+            <numShockPeriodsPrint>('AggrDevProfitPercShockPer', I3.3, ' '), 'AggrDevProfitPercPost ', &
+                <numShockPeriodsPrint>('AggrNonDevProfitPercShockPer', I3.3, ' '), 'AggrNonDevProfitPercPost ', &
+            <numShockPeriodsPrint>('seAggrDevProfitPercShockPer', I3.3, ' '), 'seAggrDevProfitPercPost ', &
+                <numShockPeriodsPrint>('seAggrNonDevProfitPercShockPer', I3.3, ' '), 'seAggrNonDevProfitPercPost ', &
             <numThresPeriodsLength>('#PerLenPre=', I2.2, ' '), &
             <numAgents>(<numThresPeriodsLength>('#PerLenPostAg', I1, '=', I2.2, ' ')), &
             <numAgents>(<numThresPeriodsLength>('#PerLenShockAg', I1, '=', I2.2, ' ')), &
@@ -397,6 +587,14 @@ CONTAINS
         alpha, MExpl, delta, DemandParameters, &
         NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
         (PricesGrids(:,i), i = 1, numAgents), &
+        AggrPricesPre, AggrDevPricesShock, AggrDevPricesPost, AggrNonDevPricesShock, AggrNonDevPricesPost, &
+        AggrPricesPreQ, AggrDevPricesShockQ, AggrDevPricesPostQ, AggrNonDevPricesShockQ, AggrNonDevPricesPostQ, &
+        AggrDevPricesPercShock, AggrDevPricesPercPost, AggrNonDevPricesPercShock, AggrNonDevPricesPercPost, &
+        AggrDevPricesPercShockQ, AggrDevPricesPercPostQ, AggrNonDevPricesPercShockQ, AggrNonDevPricesPercPostQ, &
+        AggrProfitsPre, AggrDevProfitsShock, AggrDevProfitsPost, AggrNonDevProfitsShock, AggrNonDevProfitsPost, &
+        AggrProfitsPreQ, AggrDevProfitsShockQ, AggrDevProfitsPostQ, AggrNonDevProfitsShockQ, AggrNonDevProfitsPostQ, &
+        AggrDevProfitsPercShock, AggrDevProfitsPercPost, AggrNonDevProfitsPercShock, AggrNonDevProfitsPercPost, &
+        AggrDevProfitsPercShockQ, AggrDevProfitsPercPostQ, AggrNonDevProfitsPercShockQ, AggrNonDevProfitsPercPostQ, &
         FreqPeriodLengthPre, &
         ((FreqPeriodLengthPost(iAgent,i), i = 1, numThresPeriodsLength), iAgent = 1, numAgents), &
         ((FreqPeriodLengthShock(iAgent,i), i = 1, numThresPeriodsLength), iAgent = 1, numAgents), &
@@ -413,6 +611,14 @@ CONTAINS
         <3*numAgents+numDemandParameters>(F10.7, 1X), &
         <6*numAgents>(F10.7, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
+        F12.7, 1X, <numShockPeriodsPrint>(F23.7,1X), F16.7, 1X, <numShockPeriodsPrint>(F26.7,1X), F19.7, 1X, &
+        F14.7, 1X, <numShockPeriodsPrint>(F25.7,1X), F18.7, 1X, <numShockPeriodsPrint>(F28.7,1X), F21.7, 1X, &
+        <numShockPeriodsPrint>(F27.7,1X), F20.7, 1X, <numShockPeriodsPrint>(F30.7,1X), F23.7, 1X, &
+        <numShockPeriodsPrint>(F29.7,1X), F22.7, 1X, <numShockPeriodsPrint>(F32.7,1X), F25.7, 1X, &
+        F13.7, 1X, <numShockPeriodsPrint>(F24.7,1X), F17.7, 1X, <numShockPeriodsPrint>(F27.7,1X), F20.7, 1X, &
+        F15.7, 1X, <numShockPeriodsPrint>(F26.7,1X), F19.7, 1X, <numShockPeriodsPrint>(F29.7,1X), F22.7, 1X, &
+        <numShockPeriodsPrint>(F28.7,1X), F21.7, 1X, <numShockPeriodsPrint>(F31.7,1X), F24.7, 1X, &
+        <numShockPeriodsPrint>(F30.7,1X), F23.7, 1X, <numShockPeriodsPrint>(F33.7,1X), F26.7, 1X, &
         <numThresPeriodsLength>(I13, 1X), &
         <numAgents>(<numThresPeriodsLength>(I17, 1X)), &
         <numAgents>(<numThresPeriodsLength>(I18, 1X)), &
