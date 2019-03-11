@@ -32,7 +32,7 @@ CHARACTER(len = 50) :: ModelName, FileName
 !
 ! Opening files
 !
-ModelName = "depth0_2agents.txt"
+ModelName = "2agents_sigma0.txt"
 FileName = "mod_" // ModelName
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)
@@ -112,6 +112,9 @@ DO iModel = 1, numModels
         PI,NashProfits,CoopProfits, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids)
     IF (typePayoffInput .EQ. 2) CALL computePIMatricesLogit(DemandParameters,NashPrices,CoopPrices,&
+        PI,NashProfits,CoopProfits, &
+        indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids)
+    IF (typePayoffInput .EQ. 3) CALL computePIMatricesLogitSigma0(DemandParameters,NashPrices,CoopPrices,&
         PI,NashProfits,CoopProfits, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids)
     PIQ = PI**2

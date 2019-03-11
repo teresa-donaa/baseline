@@ -170,6 +170,9 @@ CONTAINS
                 END IF
                 !
             END DO
+!@SP Sanity check    
+!strategyPrime(1,1) = 14
+!@SP Sanity check    
             !
             ! Measuring performance
             !
@@ -403,6 +406,9 @@ CONTAINS
         END DO
         !
     END IF
+!@SP Sanity check    
+!pPrime(1) = 14
+!@SP Sanity check    
     !
     ! Ending execution and returning control
     !

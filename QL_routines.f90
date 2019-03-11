@@ -35,6 +35,8 @@ CONTAINS
     !
     ! 1. Randomizing over the opponents decisions
     !
+!@SP initQNash
+!@SP initQCoop
     DO iAgent = 1, numAgents
         !
         DO iPrice = 1, numPrices
@@ -45,9 +47,19 @@ CONTAINS
         END DO
         !
     END DO
+!@SP initQCoop
+!@SP initQNash
     !
     ! 2. Repeated Nash equilibrium
     !
+!@SP initQNash
+!Q(1,:,1) = PI(numPrices+1:2*numPrices,2)/(1.d0-delta(1))
+!Q(1,:,2) = Q(1,:,1)
+!@SP initQNash
+!@SP initQCoop
+!Q(1,:,1) = PI(13*numPrices+1:14*numPrices,2)/(1.d0-delta(1))
+!Q(1,:,2) = Q(1,:,1)
+!@SP initQCoop
     !! IMPORTANT: 
     !! This only works when the repeated Nash equilibrium belongs to the prices grid
     !
@@ -94,6 +106,9 @@ CONTAINS
     !
     maxValQ = MAXVAL(Q,DIM = 2)
     maxLocQ = MAXLOC(Q,DIM = 2)
+!@SP Sanity check    
+!maxLocQ(1,1) = 14
+!@SP Sanity check    
     !
     ! Ending execution and returning control
     !
@@ -116,6 +131,9 @@ CONTAINS
     ! Beginning execution
     !
     p = 1+INT(numPrices*u)
+!@SP Sanity check    
+!p(1,1) = 14
+!@SP Sanity check    
     stateNumber = computeStateNumber(p)
     actionNumber = computeActionNumber(p(1,:))
     !

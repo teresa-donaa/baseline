@@ -244,6 +244,152 @@ CONTAINS
     ! Ending execution and returning control
     !
     END SUBROUTINE computePIMatricesLogit
+! 
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    SUBROUTINE computePIMatricesLogitSigma0 ( DemandParameters, NashPrices, CoopPrices, &
+        PI, NashProfits, CoopProfits, &
+        indexNashPrices, indexCoopPrices, NashMarketShares, CoopMarketShares, &
+        PricesGrids )
+    !
+    ! Computes the Logit common payoff matrix PI
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    REAL(8), INTENT(IN) :: DemandParameters(numDemandParameters)
+    REAL(8), DIMENSION(numAgents), INTENT(IN) :: NashPrices, CoopPrices
+    REAL(8), INTENT(OUT) :: PI(numActions,numAgents)
+    REAL(8), DIMENSION(numAgents), INTENT(OUT) :: NashProfits, CoopProfits, &
+        NashMarketShares, CoopMarketShares
+    INTEGER, DIMENSION(numAgents), INTENT(OUT) :: indexNashPrices, indexCoopPrices
+    REAL(8), DIMENSION(numPrices,numAgents), INTENT(OUT) :: PricesGrids
+    !
+    ! Declaring local variables
+    !
+    REAL(8) :: a0, sigma, extend(2), objFct
+    REAL(8), DIMENSION(numAgents) :: a, c, d, stepPrices, prices
+    INTEGER :: i, j, iter, iAgent
+    !
+    ! Beginning execution
+    !
+    IF (numAgents .GT. 2) THEN
+        !
+        PRINT*, 'Perfect competition only works with two agents!'
+        STOP
+        !
+    END IF
+    ! Computing PI matrices
+    !
+    ! Extract demand parameters
+    !
+    a0 = DemandParameters(1)
+    a = DemandParameters(2:1+numAgents)
+    c = DemandParameters(2+numAgents:1+2*numAgents)
+    sigma = DemandParameters(2+2*numAgents)
+    extend = DemandParameters(3+2*numAgents:4+2*numAgents)
+    !
+    ! 1. Compute repeated Nash profits
+    !
+    NashMarketShares = 0.5d0
+    NashProfits = (NashPrices-c)*NashMarketShares
+    !
+    ! 2. Compute cooperation profits
+    !
+    CoopMarketShares = 0.5d0
+    CoopProfits = (CoopPrices-c)*CoopMarketShares
+    !
+    ! 3. Compute price grid
+    !
+    PricesGrids(1,:) = NashPrices-extend(1)*(CoopPrices-NashPrices)
+    PricesGrids(numPrices,:) = CoopPrices+extend(2)*(CoopPrices-NashPrices)
+    stepPrices = (PricesGrids(numPrices,:)-PricesGrids(1,:))/(numPrices-1)
+    DO i = 2, numPrices-1
+        !
+        PricesGrids(i,:) = PricesGrids(i-1,:)+stepPrices
+        !
+    END DO
+    !
+    ! 4. Compute Pi matrices
+    !
+    DO i = 1, numActions
+        !
+        DO j = 1, numAgents
+            !
+            prices(j) = PricesGrids(indexActions(i,j),j)
+            !
+        END DO
+        !
+        ! Demand for agent 1
+        !
+        IF (prices(1) .LT. c(1)) THEN
+            !
+            d(1) = 0.d0
+            !
+        ELSE IF ((prices(1) .GE. c(1)) .AND. (prices(1) .LE. a(1))) THEN
+            !
+            IF (prices(1) .LT. prices(2)) THEN
+                !
+                d(1) = 1.d0
+                !
+            ELSE IF (ABS(prices(1)-prices(2)) .LE. EPSILON(prices(1))) THEN
+                !
+                d(1) = 0.5d0
+                !
+            ELSE
+                ! 
+                d(1) = 0.d0
+                !
+            END IF
+            !
+        ELSE IF (prices(1) .GT. a(1)) THEN
+            !
+            d(1) = 0.d0
+            !
+        END IF
+        !
+        ! Demand for agent 2
+        !
+        IF (prices(2) .LT. c(2)) THEN
+            !
+            d(2) = 0.d0
+            !
+        ELSE IF ((prices(2) .GE. c(2)) .AND. (prices(2) .LE. a(2))) THEN
+            !
+            IF (prices(2) .LT. prices(1)) THEN
+                !
+                d(2) = 1.d0
+                !
+            ELSE IF (ABS(prices(2)-prices(1)) .LE. EPSILON(prices(2))) THEN
+                !
+                d(2) = 0.5d0
+                !
+            ELSE
+                ! 
+                d(2) = 0.d0
+                !
+            END IF
+            !
+        ELSE IF (prices(2) .GT. a(2)) THEN
+            !
+            d(2) = 0.d0
+            !
+        END IF
+        PI(i,:) = (prices-c)*d
+        !
+    END DO
+    !
+    ! 5. With logit demand, the repeated Nash prices do no necessarily belong to the
+    !    prices grid. Hence, the indexNashPrices vector is empty. Alternatively, we could
+    !    look for the row in PricesGrids that is closest to NashPrices (not implemented yet)
+    !
+    indexNashPrices = 0
+    indexCoopPrices = 0
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE computePIMatricesLogitSigma0
 !
 ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !

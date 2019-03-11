@@ -130,12 +130,12 @@ CONTAINS
     DO iAgent = 1, numAgents
         !
         meanProfit(iAgent) = SUM(Profits(:,iAgent))/DBLE(numGames)
-        seProfit(iAgent) = SQRT((SUM(Profits(:,iAgent)**2)/DBLE(numGames)-meanProfit(iAgent)**2)/DBLE(numGames))
+        seProfit(iAgent) = SQRT(ABS((SUM(Profits(:,iAgent)**2)/DBLE(numGames)-meanProfit(iAgent)**2)/DBLE(numGames)))
         !
     END DO
     AvgProfits = SUM(Profits,DIM = 2)/DBLE(numAgents)
     meanAvgProfit = SUM(AvgProfits)/DBLE(numGames)
-    seAvgProfit = SQRT((SUM(AvgProfits**2)/DBLE(numGames)-meanAvgProfit**2)/DBLE(numGames))
+    seAvgProfit = SQRT(ABS((SUM(AvgProfits**2)/DBLE(numGames)-meanAvgProfit**2)/DBLE(numGames)))
     meanProfitGain = (meanProfit-NashProfits)/(CoopProfits-NashProfits)
     seProfitGain = seProfit/(CoopProfits-NashProfits)
     meanNashProfit = SUM(NashProfits)/numAgents

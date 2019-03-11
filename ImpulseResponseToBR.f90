@@ -484,37 +484,37 @@ CONTAINS
     !
     ! Computing standard errors
     !
-    avgPricesPreQ = SQRT((avgPricesPreQ-avgPricesPre**2)/DBLE(numGames))
-    avgProfitsPreQ = SQRT((avgProfitsPreQ-avgProfitsPre**2)/DBLE(numGames))
-    avgPricesShockQ = SQRT((avgPricesShockQ-avgPricesShock**2)/DBLE(numGames))
-    avgProfitsShockQ = SQRT((avgProfitsShockQ-avgProfitsShock**2)/DBLE(numGames))
-    avgPricesPostQ = SQRT((avgPricesPostQ-avgPricesPost**2)/DBLE(numGames))
-    avgProfitsPostQ = SQRT((avgProfitsPostQ-avgProfitsPost**2)/DBLE(numGames))
+    avgPricesPreQ = SQRT(ABS((avgPricesPreQ-avgPricesPre**2)/DBLE(numGames)))
+    avgProfitsPreQ = SQRT(ABS((avgProfitsPreQ-avgProfitsPre**2)/DBLE(numGames)))
+    avgPricesShockQ = SQRT(ABS((avgPricesShockQ-avgPricesShock**2)/DBLE(numGames)))
+    avgProfitsShockQ = SQRT(ABS((avgProfitsShockQ-avgProfitsShock**2)/DBLE(numGames)))
+    avgPricesPostQ = SQRT(ABS((avgPricesPostQ-avgPricesPost**2)/DBLE(numGames)))
+    avgProfitsPostQ = SQRT(ABS((avgProfitsPostQ-avgProfitsPost**2)/DBLE(numGames)))
     !
-    AggrPricesPreQ = SQRT((AggrPricesPreQ-AggrPricesPre**2)/DBLE(numGames))
-    AggrProfitsPreQ = SQRT((AggrProfitsPreQ-AggrProfitsPre**2)/DBLE(numGames))
+    AggrPricesPreQ = SQRT(ABS((AggrPricesPreQ-AggrPricesPre**2)/DBLE(numGames)))
+    AggrProfitsPreQ = SQRT(ABS((AggrProfitsPreQ-AggrProfitsPre**2)/DBLE(numGames)))
     DO iPeriod = 1, numShockPeriodsPrint
         !
-        AggrNonDevPricesShockQ(iPeriod) = SQRT((AggrNonDevPricesShockQ(iPeriod)-AggrNonDevPricesShock(iPeriod)**2)/DBLE(numGames))
-        AggrDevPricesShockQ(iPeriod) = SQRT((AggrDevPricesShockQ(iPeriod)-AggrDevPricesShock(iPeriod)**2)/DBLE(numGames))
-        AggrNonDevProfitsShockQ(iPeriod) = SQRT((AggrNonDevProfitsShockQ(iPeriod)-AggrNonDevProfitsShock(iPeriod)**2)/DBLE(numGames))
-        AggrDevProfitsShockQ(iPeriod) = SQRT((AggrDevProfitsShockQ(iPeriod)-AggrDevProfitsShock(iPeriod)**2)/DBLE(numGames))
+        AggrNonDevPricesShockQ(iPeriod) = SQRT(ABS((AggrNonDevPricesShockQ(iPeriod)-AggrNonDevPricesShock(iPeriod)**2)/DBLE(numGames)))
+        AggrDevPricesShockQ(iPeriod) = SQRT(ABS((AggrDevPricesShockQ(iPeriod)-AggrDevPricesShock(iPeriod)**2)/DBLE(numGames)))
+        AggrNonDevProfitsShockQ(iPeriod) = SQRT(ABS((AggrNonDevProfitsShockQ(iPeriod)-AggrNonDevProfitsShock(iPeriod)**2)/DBLE(numGames)))
+        AggrDevProfitsShockQ(iPeriod) = SQRT(ABS((AggrDevProfitsShockQ(iPeriod)-AggrDevProfitsShock(iPeriod)**2)/DBLE(numGames)))
         !
-        AggrNonDevPricesPercShockQ(iPeriod) = SQRT((AggrNonDevPricesPercShockQ(iPeriod)-AggrNonDevPricesPercShock(iPeriod)**2)/DBLE(numGames))
-        AggrDevPricesPercShockQ(iPeriod) = SQRT((AggrDevPricesPercShockQ(iPeriod)-AggrDevPricesPercShock(iPeriod)**2)/DBLE(numGames))
-        AggrNonDevProfitsPercShockQ(iPeriod) = SQRT((AggrNonDevProfitsPercShockQ(iPeriod)-AggrNonDevProfitsPercShock(iPeriod)**2)/DBLE(numGames))
-        AggrDevProfitsPercShockQ(iPeriod) = SQRT((AggrDevProfitsPercShockQ(iPeriod)-AggrDevProfitsPercShock(iPeriod)**2)/DBLE(numGames))
+        AggrNonDevPricesPercShockQ(iPeriod) = SQRT(ABS((AggrNonDevPricesPercShockQ(iPeriod)-AggrNonDevPricesPercShock(iPeriod)**2)/DBLE(numGames)))
+        AggrDevPricesPercShockQ(iPeriod) = SQRT(ABS((AggrDevPricesPercShockQ(iPeriod)-AggrDevPricesPercShock(iPeriod)**2)/DBLE(numGames)))
+        AggrNonDevProfitsPercShockQ(iPeriod) = SQRT(ABS((AggrNonDevProfitsPercShockQ(iPeriod)-AggrNonDevProfitsPercShock(iPeriod)**2)/DBLE(numGames)))
+        AggrDevProfitsPercShockQ(iPeriod) = SQRT(ABS((AggrDevProfitsPercShockQ(iPeriod)-AggrDevProfitsPercShock(iPeriod)**2)/DBLE(numGames)))
         !
     END DO
-    AggrNonDevPricesPostQ = SQRT((AggrNonDevPricesPostQ-AggrNonDevPricesPost**2)/DBLE(numGames))
-    AggrDevPricesPostQ = SQRT((AggrDevPricesPostQ-AggrDevPricesPost**2)/DBLE(numGames))
-    AggrNonDevProfitsPostQ = SQRT((AggrNonDevProfitsPostQ-AggrNonDevProfitsPost**2)/DBLE(numGames))
-    AggrDevProfitsPostQ = SQRT((AggrDevProfitsPostQ-AggrDevProfitsPost**2)/DBLE(numGames))
+    AggrNonDevPricesPostQ = SQRT(ABS((AggrNonDevPricesPostQ-AggrNonDevPricesPost**2)/DBLE(numGames)))
+    AggrDevPricesPostQ = SQRT(ABS((AggrDevPricesPostQ-AggrDevPricesPost**2)/DBLE(numGames)))
+    AggrNonDevProfitsPostQ = SQRT(ABS((AggrNonDevProfitsPostQ-AggrNonDevProfitsPost**2)/DBLE(numGames)))
+    AggrDevProfitsPostQ = SQRT(ABS((AggrDevProfitsPostQ-AggrDevProfitsPost**2)/DBLE(numGames)))
     !
-    AggrNonDevPricesPercPostQ = SQRT((AggrNonDevPricesPercPostQ-AggrNonDevPricesPercPost**2)/DBLE(numGames))
-    AggrDevPricesPercPostQ = SQRT((AggrDevPricesPercPostQ-AggrDevPricesPercPost**2)/DBLE(numGames))
-    AggrNonDevProfitsPercPostQ = SQRT((AggrNonDevProfitsPercPostQ-AggrNonDevProfitsPercPost**2)/DBLE(numGames))
-    AggrDevProfitsPercPostQ = SQRT((AggrDevProfitsPercPostQ-AggrDevProfitsPercPost**2)/DBLE(numGames))    
+    AggrNonDevPricesPercPostQ = SQRT(ABS((AggrNonDevPricesPercPostQ-AggrNonDevPricesPercPost**2)/DBLE(numGames)))
+    AggrDevPricesPercPostQ = SQRT(ABS((AggrDevPricesPercPostQ-AggrDevPricesPercPost**2)/DBLE(numGames)))
+    AggrNonDevProfitsPercPostQ = SQRT(ABS((AggrNonDevProfitsPercPostQ-AggrNonDevProfitsPercPost**2)/DBLE(numGames)))
+    AggrDevProfitsPercPostQ = SQRT(ABS((AggrDevProfitsPercPostQ-AggrDevProfitsPercPost**2)/DBLE(numGames)))   
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Printing averages and descriptive statistics
