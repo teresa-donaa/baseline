@@ -189,7 +189,7 @@ CONTAINS
         (meanFreqStates(i), i = 1, numStates)
 2   FORMAT(I5, 1X, &
         <3*numAgents+numDemandParameters>(F10.3, 1X), &
-        <6*numAgents>(F10.7, 1X), &
+        <6*numAgents>(F10.3, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         <2*(numAgents+1)>(F10.5, 1X), &
         <2*(numAgents+1)>(F10.5, 1X), &

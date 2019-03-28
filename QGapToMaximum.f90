@@ -385,7 +385,7 @@ CONTAINS
             SumQGapNotBRAllStates(j,i), SumQGapNotBRonPath(j,i), SumQGapNotEqAllStates(j,i), SumQGapNotEqonPath(j,i), i = 1, numAgents), j = 1, numThresPathCycleLength)
 2   FORMAT(I5, 1X &
         , <3*numAgents+numDemandParameters>(F10.3, 1X) &
-        , <6*numAgents>(F10.7, 1X) &
+        , <6*numAgents>(F10.3, 1X) &
         <numPrices*numAgents>(F10.5, 1X), &
         , F10.7, 1X, F10.7, 1X, F13.7, 1X, F14.7, 1X, F15.7, 1X, F14.7, 1X, F15.7, 1X &
         , <numAgents>(F10.7, 1X, F13.7, 1X, F16.7, 1X, F17.7, 1X, F18.7, 1X, F17.7, 1X, F18.7, 1X) &

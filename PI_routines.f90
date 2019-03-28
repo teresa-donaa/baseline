@@ -323,11 +323,7 @@ CONTAINS
         !
         ! Demand for agent 1
         !
-        IF (prices(1) .LT. c(1)) THEN
-            !
-            d(1) = 0.d0
-            !
-        ELSE IF ((prices(1) .GE. c(1)) .AND. (prices(1) .LE. a(1))) THEN
+        IF (prices(1) .LE. a(1)) THEN
             !
             IF (prices(1) .LT. prices(2)) THEN
                 !
@@ -351,11 +347,7 @@ CONTAINS
         !
         ! Demand for agent 2
         !
-        IF (prices(2) .LT. c(2)) THEN
-            !
-            d(2) = 0.d0
-            !
-        ELSE IF ((prices(2) .GE. c(2)) .AND. (prices(2) .LE. a(2))) THEN
+        IF (prices(2) .LE. a(2)) THEN
             !
             IF (prices(2) .LT. prices(1)) THEN
                 !

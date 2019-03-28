@@ -29,15 +29,16 @@ CONTAINS
     INTEGER :: ThresPeriodsLength(numThresPeriodsLength), ThresPeriodsLength0(numThresPeriodsLength0)
     INTEGER :: PeriodsLengthPre, PeriodsLengthShock, PeriodsLengthPost, PunishmentStrategy, &
         visitedStatesPre(numStates+1), visitedStates(MAX(numShockPeriodsPrint,numStates+1)), &
-        p(DepthState,numAgents), pPrime(numAgents), &
-        iPeriod, iAgent, jAgent, iPrice, tmp1(numAgents), &
+        p(DepthState,numAgents), pPrime(numAgents), numPeriodsShockTmp(numShockPeriodsPrint,numAgents), &
+        iStatePre, iPeriod, iAgent, jAgent, iPrice, tmp1(numAgents), &
         iGame, optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
         indexShockState(LengthStates), numPeriods, iThres, i, j
     INTEGER :: FreqPeriodLengthPre(numThresPeriodsLength)
     INTEGER, DIMENSION(numAgents,numThresPeriodsLength) :: FreqPeriodLengthShock, FreqPeriodLengthPost
     INTEGER :: FreqPunishmentStrategy(numAgents,0:numThresPeriodsLength)
+    REAL(8) :: nn
     REAL(8), DIMENSION(numPrices) :: selProfits
-    REAL(8), DIMENSION(numStates+1,numAgents) :: visitedPrices, visitedProfits
+    REAL(8), DIMENSION(numStates+1,numAgents) :: visitedPrices, visitedProfits, PricesPre, ProfitsPre
     REAL(8), DIMENSION(numAgents) :: avgPricesPre, avgProfitsPre, avgPricesPreQ, avgProfitsPreQ
     REAL(8), DIMENSION(numShockPeriodsPrint,numAgents,numAgents) :: &
         avgPricesShock, avgProfitsShock, avgPricesShockQ, avgProfitsShockQ, &
@@ -45,6 +46,8 @@ CONTAINS
     REAL(8), DIMENSION(numAgents,numAgents) :: &
         avgPricesPost, avgProfitsPost, avgPricesPostQ, avgProfitsPostQ, &
         avgPricesPercPost, avgProfitsPercPost, avgPricesPercPostQ, avgProfitsPercPostQ
+    REAL(8), DIMENSION(numShockPeriodsPrint,numAgents) :: &
+        avgPricesShockTmp, avgProfitsShockTmp, avgPricesPercShockTmp, avgProfitsPercShockTmp
     LOGICAL :: FlagReturnedToState
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     REAL(8) :: AggrPricesPre, AggrDevPricesPost, AggrNonDevPricesPost, AggrProfitsPre, AggrDevProfitsPost, AggrNonDevProfitsPost, &
@@ -57,7 +60,6 @@ CONTAINS
     REAL(8), DIMENSION(numShockPeriodsPrint) :: &
         AggrDevPricesShockQ, AggrNonDevPricesShockQ, AggrDevProfitsShockQ, AggrNonDevProfitsShockQ, &
         AggrDevPricesPercShockQ, AggrNonDevPricesPercShockQ, AggrDevProfitsPercShockQ, AggrNonDevProfitsPercShockQ
-    REAL(8), DIMENSION(numAgents) :: PricePre, ProfitPre
     !
     ! Beginning execution
     !
@@ -124,7 +126,9 @@ CONTAINS
     !$omp private(OptimalStrategy,LastObservedPrices,visitedStatesPre,visitedPrices, &
     !$omp   visitedProfits,p,pPrime,iPeriod,iAgent,OptimalStrategyVec,LastStateVec, &
     !$omp   visitedStates,selProfits,iPrice,tmp1,flagReturnedToState,jAgent,indexShockState,i, &
-    !$omp   PricePre,ProfitPre) &
+    !$omp   PricesPre,ProfitsPre, &
+    !$omp   avgPricesShockTmp,avgProfitsShockTmp,avgPricesPercShockTmp,avgProfitsPercShockTmp, &
+    !$omp   numPeriodsShockTmp,nn) &
     !$omp firstprivate(PI,PricesGrids) &
     !$omp reduction(+ : FreqPeriodLengthPre, &
     !$omp   avgPricesPre,avgProfitsPre,avgPricesShock,avgProfitsShock,avgPricesPost,avgProfitsPost, &
@@ -157,8 +161,8 @@ CONTAINS
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         !
         visitedStatesPre = 0
-        visitedPrices = 0.d0
-        visitedProfits = 0.d0
+        PricesPre = 0.d0
+        ProfitsPre = 0.d0
         p = LastObservedPrices
         pPrime = optimalStrategy(computeStateNumber(p),:)
         DO iPeriod = 1, numPeriods
@@ -169,31 +173,35 @@ CONTAINS
             visitedStatesPre(iPeriod) = computeStateNumber(p)
             DO iAgent = 1, numAgents
                 !
-                visitedPrices(iPeriod,iAgent) = PricesGrids(pPrime(iAgent),iAgent)
-                visitedProfits(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
+                PricesPre(iPeriod,iAgent) = PricesGrids(pPrime(iAgent),iAgent)
+                ProfitsPre(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
                 !
             END DO
             !
             ! Check if the state has already been visited
             !
-            IF ((iPeriod .GE. 2) .AND. (ANY(visitedStatesPre(:iPeriod-1) .EQ. visitedStatesPre(iPeriod)))) THEN
-                !
-                PeriodsLengthPre = &
-                    iPeriod-MINVAL(MINLOC((visitedStatesPre(:iPeriod-1)-visitedStatesPre(iPeriod))**2))
-                FreqPeriodLengthPre(MIN(numThresPeriodsLength,PeriodsLengthPre)) = &
-                    FreqPeriodLengthPre(MIN(numThresPeriodsLength,PeriodsLengthPre))+1
-                PricePre = SUM(visitedPrices(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre)
-                avgPricesPre = avgPricesPre+PricePre
-                avgPricesPreQ = avgPricesPreQ+PricePre**2
-                ProfitPre = SUM(visitedProfits(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre)
-                avgProfitsPre = avgProfitsPre+ProfitPre
-                avgProfitsPreQ = avgProfitsPreQ+ProfitPre**2
-                EXIT
-                !
-            END IF
+            IF ((iPeriod .GE. 2) .AND. (ANY(visitedStatesPre(:iPeriod-1) .EQ. visitedStatesPre(iPeriod)))) EXIT
+            !
+            ! Update pPrime and iterate
+            !
             pPrime = optimalStrategy(visitedStatesPre(iPeriod),:)
             !
         END DO
+        !
+        PeriodsLengthPre = &
+            iPeriod-MINVAL(MINLOC((visitedStatesPre(:iPeriod-1)-visitedStatesPre(iPeriod))**2))
+        FreqPeriodLengthPre(MIN(numThresPeriodsLength,PeriodsLengthPre)) = &
+            FreqPeriodLengthPre(MIN(numThresPeriodsLength,PeriodsLengthPre))+1
+        !
+        avgPricesPre = avgPricesPre+ &
+            SUM(PricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre)
+        avgPricesPreQ = avgPricesPreQ+ &
+            (SUM(PricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre))**2
+        avgProfitsPre = avgProfitsPre+ &
+            SUM(ProfitsPre(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre)
+        avgProfitsPreQ = avgProfitsPreQ+ &
+            (SUM(ProfitsPre(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre))**2
+        !
         visitedStatesPre(:PeriodsLengthPre) = &
             visitedStatesPre(iPeriod-PeriodsLengthPre+1:iPeriod)
         visitedStatesPre(PeriodsLengthPre+1:) = 0
@@ -204,158 +212,182 @@ CONTAINS
         !
         DO iAgent = 1, numAgents        ! Start of loop aver shocking agent 
             !
-            visitedStates = 0
-            p = LastObservedPrices
+            avgPricesShockTmp = 0.d0
+            avgProfitsShockTmp = 0.d0
+            avgPricesPercShockTmp = 0.d0
+            avgProfitsPercShockTmp = 0.d0
+            numPeriodsShockTmp = 0
             !
-            ! Price selection in shock period:
-            ! Agent "iAgent" selects the best deviation price,
-            ! The other agents stick to the strategy at convergence
-            !
-            pPrime = optimalStrategy(computeStateNumber(p),:)
-            selProfits = 0.d0
-            DO iPrice = 1, numPrices
+            DO iStatePre = 1, PeriodsLengthPre      ! Start of loop over pre-shock cycle states
                 !
-                IF (iAgent .EQ. 1) THEN
-                    !
-                    tmp1 = (/ iPrice, p(1,2:) /)
-                    !
-                ELSE IF (iAgent .EQ. numAgents) THEN
-                    !
-                    tmp1 = (/ p(1,:numAgents-1), iPrice /)
-                    !
-                ELSE
-                    !
-                    tmp1 = (/ p(1,:iAgent-1), iPrice, p(1,iAgent+1:) /)
-                    !
-                END IF
-                selProfits(iPrice) = PI(computeActionNumber(tmp1),iAgent)
+                visitedStates = 0
+                pPrime = convertNumberBase(visitedStatesPre(iStatePre)-1,numPrices,LengthStates)
                 !
-            END DO
-            pPrime(iAgent) = MINVAL(MAXLOC(selProfits))
-            !
-            flagReturnedToState = .FALSE.
-            DO iPeriod = 1, MAX(numShockPeriodsPrint,numPeriods)
+                ! Price selection in shock period:
+                ! Agent "iAgent" selects the best deviation price,
+                ! The other agents stick to the strategy at convergence
                 !
-                IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
-                p(1,:) = pPrime
-                visitedStates(iPeriod) = computeStateNumber(p)
-                DO jAgent = 1, numAgents
+                selProfits = 0.d0
+                DO iPrice = 1, numPrices
                     !
-                    IF (iPeriod .LE. numShockPeriodsPrint) THEN
+                    IF (iAgent .EQ. 1) THEN
                         !
-                        avgPricesShock(iPeriod,iAgent,jAgent) = & 
-                            avgPricesShock(iPeriod,iAgent,jAgent)+PricesGrids(pPrime(jAgent),jAgent)
-                        avgPricesShockQ(iPeriod,iAgent,jAgent) = & 
-                            avgPricesShockQ(iPeriod,iAgent,jAgent)+PricesGrids(pPrime(jAgent),jAgent)**2
-                        avgPricesPercShock(iPeriod,iAgent,jAgent) = & 
-                            avgPricesPercShock(iPeriod,iAgent,jAgent)+(PricesGrids(pPrime(jAgent),jAgent)/PricePre(jAgent))
-                        avgPricesPercShockQ(iPeriod,iAgent,jAgent) = & 
-                            avgPricesPercShockQ(iPeriod,iAgent,jAgent)+(PricesGrids(pPrime(jAgent),jAgent)/PricePre(jAgent))**2
+                        tmp1 = (/ iPrice, p(1,2:) /)
                         !
-                        avgProfitsShock(iPeriod,iAgent,jAgent) = & 
-                            avgProfitsShock(iPeriod,iAgent,jAgent)+PI(computeActionNumber(pPrime),jAgent)
-                        avgProfitsShockQ(iPeriod,iAgent,jAgent) = & 
-                            avgProfitsShockQ(iPeriod,iAgent,jAgent)+PI(computeActionNumber(pPrime),jAgent)**2
-                        avgProfitsPercShock(iPeriod,iAgent,jAgent) = & 
-                            avgProfitsPercShock(iPeriod,iAgent,jAgent)+(PI(computeActionNumber(pPrime),jAgent)/ProfitPre(jAgent))
-                        avgProfitsPercShockQ(iPeriod,iAgent,jAgent) = & 
-                            avgProfitsPercShockQ(iPeriod,iAgent,jAgent)+(PI(computeActionNumber(pPrime),jAgent)/ProfitPre(jAgent))**2
+                    ELSE IF (iAgent .EQ. numAgents) THEN
+                        !
+                        tmp1 = (/ p(1,:numAgents-1), iPrice /)
+                        !
+                    ELSE
+                        !
+                        tmp1 = (/ p(1,:iAgent-1), iPrice, p(1,iAgent+1:) /)
+                        !
+                    END IF
+                    selProfits(iPrice) = PI(computeActionNumber(tmp1),iAgent)
+                    !
+                END DO
+                pPrime(iAgent) = MINVAL(MAXLOC(selProfits))
+                !
+                flagReturnedToState = .FALSE.
+                DO iPeriod = 1, MAX(numShockPeriodsPrint,numPeriods)
+                    !
+                    IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
+                    p(1,:) = pPrime
+                    visitedStates(iPeriod) = computeStateNumber(p)
+                    DO jAgent = 1, numAgents
+                        !
+                        IF (iPeriod .LE. numShockPeriodsPrint) THEN
+                            !
+                            numPeriodsShockTmp(iPeriod,jAgent) = numPeriodsShockTmp(iPeriod,jAgent)+1
+                            nn = DBLE(numPeriodsShockTmp(iPeriod,jAgent))
+                            avgPricesShockTmp(iPeriod,jAgent) = &
+                                (nn-1.d0)/nn*avgPricesShockTmp(iPeriod,jAgent)+ &
+                                PricesGrids(pPrime(jAgent),jAgent)/nn
+                            avgPricesPercShockTmp(iPeriod,jAgent) = &
+                                (nn-1.d0)/nn*avgPricesPercShockTmp(iPeriod,jAgent)+ &
+                                (PricesGrids(pPrime(jAgent),jAgent)/PricesPre(iStatePre,jAgent))/nn
+                            avgProfitsShockTmp(iPeriod,jAgent) = &
+                                (nn-1.d0)/nn*avgProfitsShockTmp(iPeriod,jAgent)+ &
+                                PI(computeActionNumber(pPrime),jAgent)/nn
+                            avgProfitsPercShockTmp(iPeriod,jAgent) = &
+                                (nn-1.d0)/nn*avgProfitsShockTmp(iPeriod,jAgent)+ &
+                                (PI(computeActionNumber(pPrime),jAgent)/ProfitsPre(iStatePre,jAgent))/nn
+                            !
+                        END IF
+                        !
+                    END DO
+                    !
+                    ! Check if the state has already been visited
+                    ! Case 1: the state retuns to one of the states in the pre-shock cycle
+                    !
+                    IF ((.NOT.(flagReturnedToState)) .AND. &
+                        (ANY(visitedStatesPre(:PeriodsLengthPre) .EQ. visitedStates(iPeriod)))) THEN
+                        !
+                        PeriodsLengthShock = iPeriod
+                        PunishmentStrategy = iPeriod
+                        FreqPeriodLengthShock(iAgent,MIN(numThresPeriodsLength,PeriodsLengthShock)) = &
+                            FreqPeriodLengthShock(iAgent,MIN(numThresPeriodsLength,PeriodsLengthShock))+1
+                        FreqPunishmentStrategy(iAgent,MIN(numThresPeriodsLength,PunishmentStrategy)) = &
+                            FreqPunishmentStrategy(iAgent,MIN(numThresPeriodsLength,PunishmentStrategy))+1
+                        indexShockState = RESHAPE(p,(/ LengthStates /))
+                        flagReturnedToState = .TRUE.
                         !
                     END IF
                     !
-                END DO
-                !
-                ! Check if the state has already been visited
-                ! Case 1: the state retuns to one of the states in the pre-shock cycle
-                !
-                IF ((.NOT.(flagReturnedToState)) .AND. &
-                    (ANY(visitedStatesPre(:PeriodsLengthPre) .EQ. visitedStates(iPeriod)))) THEN
+                    ! Case 2: after some time, the state starts cycling among a new set of states
                     !
-                    PeriodsLengthShock = iPeriod
-                    PunishmentStrategy = iPeriod
-                    FreqPeriodLengthShock(iAgent,MIN(numThresPeriodsLength,PeriodsLengthShock)) = &
-                        FreqPeriodLengthShock(iAgent,MIN(numThresPeriodsLength,PeriodsLengthShock))+1
-                    FreqPunishmentStrategy(iAgent,MIN(numThresPeriodsLength,PunishmentStrategy)) = &
-                        FreqPunishmentStrategy(iAgent,MIN(numThresPeriodsLength,PunishmentStrategy))+1
-                    indexShockState = RESHAPE(p,(/ LengthStates /))
-                    flagReturnedToState = .TRUE.
-                    !
-                END IF
-                !
-                ! Case 2: after some time, the state starts cycling among a new set of states
-                !
-                IF ((iPeriod .GE. 2) .AND. (.NOT.(flagReturnedToState)) .AND. &
-                    (ANY(visitedStates(:iPeriod-1) .EQ. visitedStates(iPeriod)))) THEN
-                    !
-                    PeriodsLengthShock = &
-                        MINVAL(MINLOC((visitedStates(:iPeriod-1)-visitedStates(iPeriod))**2))
-                    PunishmentStrategy = 0
-                    FreqPeriodLengthShock(iAgent,MIN(numThresPeriodsLength,PeriodsLengthShock)) = &
-                        FreqPeriodLengthShock(iAgent,MIN(numThresPeriodsLength,PeriodsLengthShock))+1
-                    FreqPunishmentStrategy(iAgent,MIN(numThresPeriodsLength,PunishmentStrategy)) = &
-                        FreqPunishmentStrategy(iAgent,MIN(numThresPeriodsLength,PunishmentStrategy))+1
-                    indexShockState = RESHAPE(p,(/ LengthStates /))
-                    flagReturnedToState = .TRUE.
-                    !
-                END IF
-                pPrime = optimalStrategy(visitedStates(iPeriod),:)
-                !
-            END DO
-            !
-            ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            ! Post-shock period analysis
-            ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            !
-            visitedStates = 0
-            visitedPrices = 0.d0
-            visitedProfits = 0.d0
-            p = RESHAPE(indexShockState, (/ DepthState,numAgents /) )
-            pPrime = optimalStrategy(computeStateNumber(p),:)
-            DO iPeriod = 1, numPeriods
-                !
-                IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
-                p(1,:) = pPrime
-                visitedStates(iPeriod) = computeStateNumber(p)
-                DO jAgent = 1, numAgents
-                    !
-                    visitedPrices(iPeriod,jAgent) = PricesGrids(pPrime(jAgent),jAgent)
-                    visitedProfits(iPeriod,jAgent) = PI(computeActionNumber(pPrime),jAgent)
+                    IF ((iPeriod .GE. 2) .AND. (.NOT.(flagReturnedToState)) .AND. &
+                        (ANY(visitedStates(:iPeriod-1) .EQ. visitedStates(iPeriod)))) THEN
+                        !
+                        PeriodsLengthShock = &
+                            MINVAL(MINLOC((visitedStates(:iPeriod-1)-visitedStates(iPeriod))**2))
+                        PunishmentStrategy = 0
+                        FreqPeriodLengthShock(iAgent,MIN(numThresPeriodsLength,PeriodsLengthShock)) = &
+                            FreqPeriodLengthShock(iAgent,MIN(numThresPeriodsLength,PeriodsLengthShock))+1
+                        FreqPunishmentStrategy(iAgent,MIN(numThresPeriodsLength,PunishmentStrategy)) = &
+                            FreqPunishmentStrategy(iAgent,MIN(numThresPeriodsLength,PunishmentStrategy))+1
+                        indexShockState = RESHAPE(p,(/ LengthStates /))
+                        flagReturnedToState = .TRUE.
+                        !
+                    END IF
+                    pPrime = optimalStrategy(visitedStates(iPeriod),:)
                     !
                 END DO
                 !
-                ! Check if the state has already been visited
+                ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                ! Post-shock period analysis
+                ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 !
-                IF ((iPeriod .GE. 2) .AND. (ANY(visitedStates(:iPeriod-1) .EQ. visitedStates(iPeriod)))) THEN
+                visitedStates = 0
+                visitedPrices = 0.d0
+                visitedProfits = 0.d0
+                p = RESHAPE(indexShockState, (/ DepthState,numAgents /) )
+                pPrime = optimalStrategy(computeStateNumber(p),:)
+                DO iPeriod = 1, numPeriods
                     !
-                    PeriodsLengthPost = &
-                        iPeriod-MINVAL(MINLOC((visitedStates(:iPeriod-1)-visitedStates(iPeriod))**2))
-                    FreqPeriodLengthPost(iAgent,MIN(numThresPeriodsLength,PeriodsLengthPost)) = &
-                        FreqPeriodLengthPost(iAgent,MIN(numThresPeriodsLength,PeriodsLengthPost))+1
+                    IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
+                    p(1,:) = pPrime
+                    visitedStates(iPeriod) = computeStateNumber(p)
+                    DO jAgent = 1, numAgents
+                        !
+                        visitedPrices(iPeriod,jAgent) = PricesGrids(pPrime(jAgent),jAgent)
+                        visitedProfits(iPeriod,jAgent) = PI(computeActionNumber(pPrime),jAgent)
+                        !
+                    END DO
                     !
-                    avgPricesPost(iAgent,:) = avgPricesPost(iAgent,:)+ &
-                        SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)
-                    avgPricesPostQ(iAgent,:) = avgPricesPostQ(iAgent,:)+ &
-                        (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost))**2
-                    avgPricesPercPost(iAgent,:) = avgPricesPercPost(iAgent,:)+ &
-                        (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)/PricePre)
-                    avgPricesPercPostQ(iAgent,:) = avgPricesPercPostQ(iAgent,:)+ &
-                        (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)/PricePre)**2
+                    ! Check if the state has already been visited
                     !
-                    avgProfitsPost(iAgent,:) = avgProfitsPost(iAgent,:)+ &
-                        SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)
-                    avgProfitsPostQ(iAgent,:) = avgProfitsPostQ(iAgent,:)+ &
-                        (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost))**2
-                    avgProfitsPercPost(iAgent,:) = avgProfitsPercPost(iAgent,:)+ &
-                        (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)/ProfitPre)
-                    avgProfitsPercPostQ(iAgent,:) = avgProfitsPercPostQ(iAgent,:)+ &
-                        (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPost)/ProfitPre)**2
+                    IF ((iPeriod .GE. 2) .AND. (ANY(visitedStates(:iPeriod-1) .EQ. visitedStates(iPeriod)))) EXIT
                     !
-                    EXIT
+                    ! Update pPrime and iterate
                     !
-                END IF
-                pPrime = optimalStrategy(visitedStates(iPeriod),:)
+                    pPrime = optimalStrategy(visitedStates(iPeriod),:)
+                    !
+                END DO
                 !
-            END DO
+                PeriodsLengthPost = &
+                    iPeriod-MINVAL(MINLOC((visitedStates(:iPeriod-1)-visitedStates(iPeriod))**2))
+                FreqPeriodLengthPost(iAgent,MIN(numThresPeriodsLength,PeriodsLengthPost)) = &
+                    FreqPeriodLengthPost(iAgent,MIN(numThresPeriodsLength,PeriodsLengthPost))+1
+                !
+                avgPricesPost(iAgent,:) = avgPricesPost(iAgent,:)+ &
+                    SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre)
+                avgPricesPostQ(iAgent,:) = avgPricesPostQ(iAgent,:)+ &
+                    (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre))**2
+                avgPricesPercPost(iAgent,:) = avgPricesPercPost(iAgent,:)+ &
+                    (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    DBLE(PeriodsLengthPost)/PricesPre(iStatePre,:)/DBLE(PeriodsLengthPre))
+                avgPricesPercPostQ(iAgent,:) = avgPricesPercPostQ(iAgent,:)+ &
+                    (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    DBLE(PeriodsLengthPost)/PricesPre(iStatePre,:)/DBLE(PeriodsLengthPre))**2
+                !
+                avgProfitsPost(iAgent,:) = avgProfitsPost(iAgent,:)+ &
+                    SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre)
+                avgProfitsPostQ(iAgent,:) = avgProfitsPostQ(iAgent,:)+ &
+                    (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre))**2
+                avgProfitsPercPost(iAgent,:) = avgProfitsPercPost(iAgent,:)+ &
+                    (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    DBLE(PeriodsLengthPost)/ProfitsPre(iStatePre,:)/DBLE(PeriodsLengthPre))
+                avgProfitsPercPostQ(iAgent,:) = avgProfitsPercPostQ(iAgent,:)+ &
+                    (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    DBLE(PeriodsLengthPost)/ProfitsPre(iStatePre,:)/DBLE(PeriodsLengthPre))**2
+                !
+            END DO                          ! End of loop over pre-shock cycle states
+            !
+            ! Compute average prices and profits over pre-shock cycle states
+            !
+            avgPricesShock(:,iAgent,:) = avgPricesShock(:,iAgent,:)+avgPricesShockTmp
+            avgPricesShockQ(:,iAgent,:) = avgPricesShockQ(:,iAgent,:)+avgPricesShockTmp**2
+            avgProfitsShock(:,iAgent,:) = avgProfitsShock(:,iAgent,:)+avgProfitsShockTmp
+            avgProfitsShockQ(:,iAgent,:) = avgProfitsShockQ(:,iAgent,:)+avgProfitsShockTmp**2
+            avgPricesPercShock(:,iAgent,:) = avgPricesPercShock(:,iAgent,:)+avgPricesPercShockTmp
+            avgPricesPercShockQ(:,iAgent,:) = avgPricesPercShockQ(:,iAgent,:)+avgPricesPercShockTmp**2
+            avgProfitsPercShock(:,iAgent,:) = avgProfitsPercShock(:,iAgent,:)+avgProfitsPercShockTmp
+            avgProfitsPercShockQ(:,iAgent,:) = avgProfitsPercShockQ(:,iAgent,:)+avgProfitsPercShockTmp**2
             !
             ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             ! End of Impulse Response analysis
@@ -618,7 +650,7 @@ CONTAINS
             jAgent = 1, numAgents), iAgent = 1, numAgents)
 2   FORMAT(I5, 1X, &
         <3*numAgents+numDemandParameters>(F10.3, 1X), &
-        <6*numAgents>(F10.7, 1X), &
+        <6*numAgents>(F10.3, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         F12.7, 1X, <numShockPeriodsPrint>(F23.7,1X), F16.7, 1X, <numShockPeriodsPrint>(F26.7,1X), F19.7, 1X, &
         F14.7, 1X, <numShockPeriodsPrint>(F25.7,1X), F18.7, 1X, <numShockPeriodsPrint>(F28.7,1X), F21.7, 1X, &

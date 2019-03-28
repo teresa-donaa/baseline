@@ -381,7 +381,7 @@ CONTAINS
             iThres = 1, numThresPathCycleLength)
 2   FORMAT(I5, 1X, &
         <3*numAgents+numDemandParameters>(F10.3, 1X), &
-        <6*numAgents>(F10.7, 1X), &
+        <6*numAgents>(F10.3, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         (I6, 1X, F15.7, 1X, F16.7, 1X, F15.7, 1X, F16.7, 1X), &
             <numAgents>(I6, 1X, F15.7, 1X, F16.7, 1X), &

@@ -577,7 +577,7 @@ CONTAINS
             jAgent = 1, numAgents), iAgent = 1, numAgents), iPrice = 1, numPrices)
 2       FORMAT(I5, 1X, &
         <3*numAgents+numDemandParameters>(F10.3, 1X), &
-        <6*numAgents>(F10.7, 1X), &
+        <6*numAgents>(F10.3, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         <numPrices>(F12.7, 1X, <numShockPeriodsPrint>(F27.7,1X), F20.7, 1X, <numShockPeriodsPrint>(F30.7,1X), F23.7, 1X), &
         <numPrices>(F14.7, 1X, <numShockPeriodsPrint>(F29.7,1X), F22.7, 1X, <numShockPeriodsPrint>(F32.7,1X), F25.7, 1X), &
