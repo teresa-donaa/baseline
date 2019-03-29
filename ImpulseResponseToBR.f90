@@ -124,8 +124,8 @@ CONTAINS
     !$omp parallel do &
     !$omp private(OptimalStrategy,LastObservedPrices,visitedStatesPre,visitedPrices, &
     !$omp   visitedProfits,p,pPrime,iPeriod,iAgent,OptimalStrategyVec,LastStateVec, &
-    !$omp   visitedStates,flagReturnedToState,jAgent,indexShockState,i, &
-    !$omp   PricesPre,ProfitsPre, &
+    !$omp   visitedStates,flagReturnedToState,jAgent,indexShockState,PricesPre,ProfitsPre, &
+    !$omp   PeriodsLengthPre,iStatePre,PeriodsLengthShock,PunishmentStrategy,PeriodsLengthPost, &
     !$omp   avgPricesShockTmp,avgProfitsShockTmp,avgPricesPercShockTmp,avgProfitsPercShockTmp, &
     !$omp   numPeriodsShockTmp,nn) &
     !$omp firstprivate(PI,PricesGrids) &
@@ -192,18 +192,21 @@ CONTAINS
         FreqPeriodLengthPre(MIN(numThresPeriodsLength,PeriodsLengthPre)) = &
             FreqPeriodLengthPre(MIN(numThresPeriodsLength,PeriodsLengthPre))+1
         !
-        avgPricesPre = avgPricesPre+ &
-            SUM(PricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre)
-        avgPricesPreQ = avgPricesPreQ+ &
-            (SUM(PricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre))**2
-        avgProfitsPre = avgProfitsPre+ &
-            SUM(ProfitsPre(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre)
-        avgProfitsPreQ = avgProfitsPreQ+ &
-            (SUM(ProfitsPre(iPeriod-PeriodsLengthPre+1:iPeriod,:),DIM = 1)/DBLE(PeriodsLengthPre))**2
-        !
-        visitedStatesPre(:PeriodsLengthPre) = &
-            visitedStatesPre(iPeriod-PeriodsLengthPre+1:iPeriod)
+        visitedStatesPre(:PeriodsLengthPre) = visitedStatesPre(iPeriod-PeriodsLengthPre+1:iPeriod)
         visitedStatesPre(PeriodsLengthPre+1:) = 0
+        PricesPre(:PeriodsLengthPre,:) = PricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
+        PricesPre(PeriodsLengthPre+1:,:) = 0.d0
+        ProfitsPre(:PeriodsLengthPre,:) = ProfitsPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
+        ProfitsPre(PeriodsLengthPre+1:,:) = 0.d0
+        !
+        avgPricesPre = avgPricesPre+ &
+            SUM(PricesPre(:PeriodsLengthPre,:),DIM = 1)/DBLE(PeriodsLengthPre)
+        avgPricesPreQ = avgPricesPreQ+ &
+            (SUM(PricesPre(:PeriodsLengthPre,:),DIM = 1)/DBLE(PeriodsLengthPre))**2
+        avgProfitsPre = avgProfitsPre+ &
+            SUM(ProfitsPre(:PeriodsLengthPre,:),DIM = 1)/DBLE(PeriodsLengthPre)
+        avgProfitsPreQ = avgProfitsPreQ+ &
+            (SUM(ProfitsPre(:PeriodsLengthPre,:),DIM = 1)/DBLE(PeriodsLengthPre))**2
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! Shock period analysis
