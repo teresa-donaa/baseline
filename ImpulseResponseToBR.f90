@@ -30,14 +30,13 @@ CONTAINS
     INTEGER :: PeriodsLengthPre, PeriodsLengthShock, PeriodsLengthPost, PunishmentStrategy, &
         visitedStatesPre(numStates+1), visitedStates(MAX(numShockPeriodsPrint,numStates+1)), &
         p(DepthState,numAgents), pPrime(numAgents), numPeriodsShockTmp(numShockPeriodsPrint,numAgents), &
-        iStatePre, iPeriod, iAgent, jAgent, iPrice, tmp1(numAgents), &
+        iStatePre, iPeriod, iAgent, jAgent, &
         iGame, optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
         indexShockState(LengthStates), numPeriods, iThres, i, j
     INTEGER :: FreqPeriodLengthPre(numThresPeriodsLength)
     INTEGER, DIMENSION(numAgents,numThresPeriodsLength) :: FreqPeriodLengthShock, FreqPeriodLengthPost
     INTEGER :: FreqPunishmentStrategy(numAgents,0:numThresPeriodsLength)
     REAL(8) :: nn
-    REAL(8), DIMENSION(numPrices) :: selProfits
     REAL(8), DIMENSION(numStates+1,numAgents) :: visitedPrices, visitedProfits, PricesPre, ProfitsPre
     REAL(8), DIMENSION(numAgents) :: avgPricesPre, avgProfitsPre, avgPricesPreQ, avgProfitsPreQ
     REAL(8), DIMENSION(numShockPeriodsPrint,numAgents,numAgents) :: &
@@ -125,7 +124,7 @@ CONTAINS
     !$omp parallel do &
     !$omp private(OptimalStrategy,LastObservedPrices,visitedStatesPre,visitedPrices, &
     !$omp   visitedProfits,p,pPrime,iPeriod,iAgent,OptimalStrategyVec,LastStateVec, &
-    !$omp   visitedStates,selProfits,iPrice,tmp1,flagReturnedToState,jAgent,indexShockState,i, &
+    !$omp   visitedStates,flagReturnedToState,jAgent,indexShockState,i, &
     !$omp   PricesPre,ProfitsPre, &
     !$omp   avgPricesShockTmp,avgProfitsShockTmp,avgPricesPercShockTmp,avgProfitsPercShockTmp, &
     !$omp   numPeriodsShockTmp,nn) &
@@ -227,26 +226,7 @@ CONTAINS
                 ! Agent "iAgent" selects the best deviation price,
                 ! The other agents stick to the strategy at convergence
                 !
-                selProfits = 0.d0
-                DO iPrice = 1, numPrices
-                    !
-                    IF (iAgent .EQ. 1) THEN
-                        !
-                        tmp1 = (/ iPrice, p(1,2:) /)
-                        !
-                    ELSE IF (iAgent .EQ. numAgents) THEN
-                        !
-                        tmp1 = (/ p(1,:numAgents-1), iPrice /)
-                        !
-                    ELSE
-                        !
-                        tmp1 = (/ p(1,:iAgent-1), iPrice, p(1,iAgent+1:) /)
-                        !
-                    END IF
-                    selProfits(iPrice) = PI(computeActionNumber(tmp1),iAgent)
-                    !
-                END DO
-                pPrime(iAgent) = MINVAL(MAXLOC(selProfits))
+                pPrime(iAgent) = ComputeBestResponse(iAgent,p,PI(:,iAgent))
                 !
                 flagReturnedToState = .FALSE.
                 DO iPeriod = 1, MAX(numShockPeriodsPrint,numPeriods)
@@ -673,6 +653,56 @@ CONTAINS
     ! Ending execution and returning control
     !
     END SUBROUTINE computeIRAnalysisToBR
+!
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    FUNCTION ComputeBestResponse ( iAgent, p, PIiAgent )
+    !
+    ! Computes best response of one agent given the other agents' prices
+    !
+    IMPLICIT NONE
+    !
+    ! Declare dummy variables
+    !
+    INTEGER, INTENT(IN) :: iAgent
+    INTEGER, INTENT(IN) :: p(DepthState,numAgents)
+    REAL(8), INTENT(IN) :: PIiAgent(numActions)
+    !
+    ! Declare function's type
+    !
+    INTEGER :: ComputeBestResponse
+    !
+    ! Declare local variables
+    !
+    REAL(8), DIMENSION(numPrices) :: selProfits
+    INTEGER :: tmp1(numAgents), iPrice
+    !
+    ! Beginning execution
+    !
+    selProfits = 0.d0
+    DO iPrice = 1, numPrices
+        !
+        IF (iAgent .EQ. 1) THEN
+            !
+            tmp1 = (/ iPrice, p(1,2:) /)
+            !
+        ELSE IF (iAgent .EQ. numAgents) THEN
+            !
+            tmp1 = (/ p(1,:numAgents-1), iPrice /)
+            !
+        ELSE
+            !
+            tmp1 = (/ p(1,:iAgent-1), iPrice, p(1,iAgent+1:) /)
+            !
+        END IF
+        selProfits(iPrice) = PIiAgent(computeActionNumber(tmp1))
+        !
+    END DO
+    ComputeBestResponse = MINVAL(MAXLOC(selProfits))
+    !
+    ! Ending execution and returning control
+    !
+    END FUNCTION ComputeBestResponse    
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
