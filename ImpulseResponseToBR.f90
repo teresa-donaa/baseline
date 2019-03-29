@@ -3,7 +3,7 @@ MODULE ImpulseResponseToBR
 USE globals
 USE QL_routines
 !
-! Computes Impulse Response analysis
+! Computes Impulse Response analysis to a one-period deviation to best response
 !
 IMPLICIT NONE
 !
