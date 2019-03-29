@@ -335,13 +335,13 @@ CONTAINS
                     DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre)
                 avgPricesPostQ(iAgent,:) = avgPricesPostQ(iAgent,:)+ &
                     (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
-                    DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre))**2
+                    DBLE(PeriodsLengthPost))**2/DBLE(PeriodsLengthPre)
                 avgPricesPercPost(iAgent,:) = avgPricesPercPost(iAgent,:)+ &
                     (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
                     DBLE(PeriodsLengthPost)/PricesPre(iStatePre,:)/DBLE(PeriodsLengthPre))
                 avgPricesPercPostQ(iAgent,:) = avgPricesPercPostQ(iAgent,:)+ &
                     (SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
-                    DBLE(PeriodsLengthPost)/PricesPre(iStatePre,:)/DBLE(PeriodsLengthPre))**2
+                    DBLE(PeriodsLengthPost)/PricesPre(iStatePre,:))**2/DBLE(PeriodsLengthPre)
                 !
                 avgProfitsPost(iAgent,:) = avgProfitsPost(iAgent,:)+ &
                     SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
@@ -354,7 +354,7 @@ CONTAINS
                     DBLE(PeriodsLengthPost)/ProfitsPre(iStatePre,:)/DBLE(PeriodsLengthPre))
                 avgProfitsPercPostQ(iAgent,:) = avgProfitsPercPostQ(iAgent,:)+ &
                     (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
-                    DBLE(PeriodsLengthPost)/ProfitsPre(iStatePre,:)/DBLE(PeriodsLengthPre))**2
+                    DBLE(PeriodsLengthPost)/ProfitsPre(iStatePre,:))**2/DBLE(PeriodsLengthPre)
                 !
             END DO                          ! End of loop over pre-shock cycle states
             !
