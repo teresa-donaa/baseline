@@ -32,7 +32,7 @@ CHARACTER(len = 50) :: ModelName, FileName
 !
 ! Opening files
 !
-ModelName = "figure_3.txt"
+ModelName = "figure_6.txt"
 FileName = "mod_" // ModelName
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)

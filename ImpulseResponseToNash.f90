@@ -358,7 +358,7 @@ CONTAINS
                     DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre)
                 avgProfitsPostQ(iAgent,:) = avgProfitsPostQ(iAgent,:)+ &
                     (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
-                    DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre))**2
+                    DBLE(PeriodsLengthPost))**2/DBLE(PeriodsLengthPre)
                 avgProfitsPercPost(iAgent,:) = avgProfitsPercPost(iAgent,:)+ &
                     (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
                     DBLE(PeriodsLengthPost)/ProfitsPre(iStatePre,:)/DBLE(PeriodsLengthPre))
