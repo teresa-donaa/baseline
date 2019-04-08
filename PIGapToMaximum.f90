@@ -457,8 +457,8 @@ CONTAINS
         (SumAvgPIGapTot(j,i), SumAvgPIGapOnPath(j,i), SumAvgPIGapNotOnPath(j,i), &
             SumAvgPIGapNotBRAllStates(j,i), SumAvgPIGapNotBRonPath(j,i), SumAvgPIGapNotEqAllStates(j,i), SumAvgPIGapNotEqonPath(j,i), i = 1, numAgents), j = 1, numThresPathCycleLength)
 2   FORMAT(I5, 1X, &
-        <3*numAgents+numDemandParameters>(F10.3, 1X), &
-        <6*numAgents>(F10.3, 1X), &
+        <3*numAgents+numDemandParameters>(F10.5, 1X), &
+        <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         F14.7, 1X, F14.7, 1X, F17.7, 1X, F18.7, 1X, F19.7, 1X, F18.7, 1X, F19.7, 1X, &
         <numAgents>(F14.7, 1X, F17.7, 1X, F20.7, 1X, F21.7, 1X, F22.7, 1X, F21.7, 1X, F22.7, 1X), &

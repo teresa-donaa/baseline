@@ -36,6 +36,7 @@ CONTAINS
     INTEGER :: FreqPeriodLengthPre(numThresPeriodsLength)
     INTEGER, DIMENSION(numAgents,numThresPeriodsLength) :: FreqPeriodLengthShock, FreqPeriodLengthPost
     INTEGER :: FreqPunishmentStrategy(numAgents,0:numThresPeriodsLength)
+    INTEGER, DIMENSION(numStates+1,numAgents) :: indexPricesPre
     REAL(8) :: nn, pNash
     REAL(8), DIMENSION(numStates+1,numAgents) :: visitedPrices, visitedProfits, PricesPre, ProfitsPre
     REAL(8), DIMENSION(numAgents) :: avgPricesPre, avgProfitsPre, avgPricesPreQ, avgProfitsPreQ
@@ -124,7 +125,7 @@ CONTAINS
     !$omp parallel do &
     !$omp private(OptimalStrategy,LastObservedPrices,visitedStatesPre,visitedPrices, &
     !$omp   visitedProfits,p,pPrime,iPeriod,iAgent,pNash,OptimalStrategyVec,LastStateVec, &
-    !$omp   visitedStates,flagReturnedToState,jAgent,indexShockState,PricesPre,ProfitsPre, &
+    !$omp   visitedStates,flagReturnedToState,jAgent,indexShockState,indexPricesPre,PricesPre,ProfitsPre, &
     !$omp   PeriodsLengthPre,iStatePre,PeriodsLengthShock,PunishmentStrategy,PeriodsLengthPost, &
     !$omp   avgPricesShockTmp,avgProfitsShockTmp,avgPricesPercShockTmp,avgProfitsPercShockTmp, &
     !$omp   numPeriodsShockTmp,nn) &
@@ -160,6 +161,7 @@ CONTAINS
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         !
         visitedStatesPre = 0
+        indexPricesPre = 0
         PricesPre = 0.d0
         ProfitsPre = 0.d0
         p = LastObservedPrices
@@ -172,6 +174,7 @@ CONTAINS
             visitedStatesPre(iPeriod) = computeStateNumber(p)
             DO iAgent = 1, numAgents
                 !
+                indexPricesPre(iPeriod,iAgent) = pPrime(iAgent)
                 PricesPre(iPeriod,iAgent) = PricesGrids(pPrime(iAgent),iAgent)
                 ProfitsPre(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
                 !
@@ -194,6 +197,8 @@ CONTAINS
         !
         visitedStatesPre(:PeriodsLengthPre) = visitedStatesPre(iPeriod-PeriodsLengthPre+1:iPeriod)
         visitedStatesPre(PeriodsLengthPre+1:) = 0
+        indexPricesPre(:PeriodsLengthPre,:) = indexPricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
+        indexPricesPre(PeriodsLengthPre+1:,:) = 0
         PricesPre(:PeriodsLengthPre,:) = PricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
         PricesPre(PeriodsLengthPre+1:,:) = 0.d0
         ProfitsPre(:PeriodsLengthPre,:) = ProfitsPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
@@ -223,7 +228,7 @@ CONTAINS
             DO iStatePre = 1, PeriodsLengthPre      ! Start of loop over pre-shock cycle states
                 !
                 visitedStates = 0
-                pPrime = convertNumberBase(visitedStatesPre(iStatePre)-1,numPrices,LengthStates)
+                pPrime = indexPricesPre(iStatePre,:)
                 !
                 ! Price selection in shock period:
                 ! Agent "iAgent" selects the price closest to the Nash one,
@@ -642,8 +647,8 @@ CONTAINS
         ((avgProfitsPreQ(jAgent), (avgProfitsShockQ(iPeriod,iAgent,jAgent), iPeriod = 1, numShockPeriodsPrint), avgProfitsPostQ(iAgent,jAgent), &
             jAgent = 1, numAgents), iAgent = 1, numAgents)
 2   FORMAT(I5, 1X, &
-        <3*numAgents+numDemandParameters>(F10.3, 1X), &
-        <6*numAgents>(F10.3, 1X), &
+        <3*numAgents+numDemandParameters>(F10.5, 1X), &
+        <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         F12.7, 1X, <numShockPeriodsPrint>(F23.7,1X), F16.7, 1X, <numShockPeriodsPrint>(F26.7,1X), F19.7, 1X, &
         F14.7, 1X, <numShockPeriodsPrint>(F25.7,1X), F18.7, 1X, <numShockPeriodsPrint>(F28.7,1X), F21.7, 1X, &

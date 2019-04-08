@@ -30,6 +30,7 @@ CONTAINS
         iStatePre, iGame, iAgent, iPrice, iPeriod, jAgent, &
         optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
         indexShockState(LengthStates), numPeriods, iThres, i, j
+    INTEGER, DIMENSION(numStates+1,numAgents) :: indexPricesPre
     REAL(8) :: nn
     REAL(8), DIMENSION(numStates+1,numAgents) :: visitedPrices, visitedProfits, PricesPre, ProfitsPre
     REAL(8), DIMENSION(numAgents) :: avgPricesPre, avgProfitsPre, avgPricesPreQ, avgProfitsPreQ
@@ -113,7 +114,7 @@ CONTAINS
     !$omp parallel do &
     !$omp private(OptimalStrategy,LastObservedPrices,visitedStatesPre,visitedPrices, &
     !$omp   visitedProfits,p,pPrime,iPeriod,iAgent,OptimalStrategyVec,LastStateVec, &
-    !$omp   visitedStates,flagReturnedToState,jAgent,indexShockState,PricesPre,ProfitsPre, &
+    !$omp   visitedStates,flagReturnedToState,jAgent,indexShockState,indexPricesPre,PricesPre,ProfitsPre, &
     !$omp   PeriodsLengthPre,iStatePre,PeriodsLengthPost, &
     !$omp   avgPricesShockTmp,avgProfitsShockTmp,avgPricesPercShockTmp,avgProfitsPercShockTmp, &
     !$omp   numPeriodsShockTmp,nn,iPrice) &
@@ -147,6 +148,7 @@ CONTAINS
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         !
         visitedStatesPre = 0
+        indexPricesPre = 0
         visitedPrices = 0.d0
         visitedProfits = 0.d0
         p = LastObservedPrices
@@ -159,6 +161,7 @@ CONTAINS
             visitedStatesPre(iPeriod) = computeStateNumber(p)
             DO iAgent = 1, numAgents
                 !
+                indexPricesPre(iPeriod,iAgent) = pPrime(iAgent)
                 PricesPre(iPeriod,iAgent) = PricesGrids(pPrime(iAgent),iAgent)
                 ProfitsPre(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
                 !
@@ -179,6 +182,8 @@ CONTAINS
         !
         visitedStatesPre(:PeriodsLengthPre) = visitedStatesPre(iPeriod-PeriodsLengthPre+1:iPeriod)
         visitedStatesPre(PeriodsLengthPre+1:) = 0
+        indexPricesPre(:PeriodsLengthPre,:) = indexPricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
+        indexPricesPre(PeriodsLengthPre+1:,:) = 0
         PricesPre(:PeriodsLengthPre,:) = PricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
         PricesPre(PeriodsLengthPre+1:,:) = 0.d0
         ProfitsPre(:PeriodsLengthPre,:) = ProfitsPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
@@ -210,7 +215,7 @@ CONTAINS
                 DO iStatePre = 1, PeriodsLengthPre      ! Start of loop over pre-shock cycle states
                     !
                     visitedStates = 0
-                    pPrime = convertNumberBase(visitedStatesPre(iStatePre)-1,numPrices,LengthStates)
+                    pPrime = indexPricesPre(iStatePre,:)
                     !
                     ! Price selection in shock period:
                     ! Agent "iAgent" selects the each price in turn,
@@ -611,8 +616,8 @@ CONTAINS
         (((avgProfitsPre(jAgent), (avgProfitsShock(iPrice,iPeriod,iAgent,jAgent), iPeriod = 1, numShockPeriodsPrint), avgProfitsPost(iPrice,iAgent,jAgent), &
             jAgent = 1, numAgents), iAgent = 1, numAgents), iPrice = 1, numPrices)
 2       FORMAT(I5, 1X, &
-        <3*numAgents+numDemandParameters>(F10.3, 1X), &
-        <6*numAgents>(F10.3, 1X), &
+        <3*numAgents+numDemandParameters>(F10.5, 1X), &
+        <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         <numPrices>(F12.7, 1X, <numShockPeriodsPrint>(F27.7,1X), F20.7, 1X, <numShockPeriodsPrint>(F30.7,1X), F23.7, 1X), &
         <numPrices>(F14.7, 1X, <numShockPeriodsPrint>(F29.7,1X), F22.7, 1X, <numShockPeriodsPrint>(F32.7,1X), F25.7, 1X), &
