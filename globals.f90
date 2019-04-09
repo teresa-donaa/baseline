@@ -17,7 +17,7 @@ REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
 !
 ! Variables
 !
-INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
+INTEGER :: numModels, FirstModel, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     itersInPerfMeasPeriod, printExp, printQ, &
     PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, numNashStrategies, &
     numPrintStrategies, typeExplorationMechanism, useNashStrategies, useOtherStrategies, &
@@ -70,6 +70,8 @@ CONTAINS
     !
     READ(unitNumber,'(1X)') 
     READ(unitNumber,*) numModels
+    READ(unitNumber,'(1X)') 
+    READ(unitNumber,*) FirstModel
     READ(unitNumber,'(1X)') 
     READ(unitNumber,*) numCores
     READ(unitNumber,'(1X)')
@@ -201,44 +203,6 @@ CONTAINS
         indexActions(iAction,:) = convertNumberBase(iAction-1,numPrices,numAgents)
         !
     END DO
-!@SP
-    !!
-    !! Find indexes of equivalent states, i.e. states that are the same when considered 
-    !! from the point of view of the two agents
-    !! E.g.: When numPrices = 3 and DepthState = 2, state (1.2)-(1.3) for agent 1 is the same
-    !! as state (2.1)-(3.1) for agent 2
-    !!
-    !IF (numAgents .EQ. 2) THEN
-    !    !
-    !    ALLOCATE(switchedState(LengthStates),indA1(DepthState),indA2(DepthState))
-    !    DO iState = 1, numStates
-    !        !
-    !        indexStates(iState,:) = convertNumberBase(iState-1,numPrices,LengthStates)
-    !        !
-    !    END DO
-    !    !
-    !    indA1 = (/ (i, i = 1, LengthStates, numAgents) /)
-    !    indA2 = indA1+1
-    !    DO iState = 1, numStates
-    !        !
-    !        indexEquivalentStates(iState,1) = iState
-    !        switchedState(indA1) = indexStates(iState,indA2)
-    !        switchedState(indA2) = indexStates(iState,indA1)
-    !        DO jState = 1, numStates
-    !            !
-    !            IF (ALL(switchedState .EQ. indexStates(jState,:))) THEN
-    !                !
-    !                indexEquivalentStates(iState,2) = jState
-    !                EXIT
-    !                !
-    !            END IF
-    !            !
-    !        END DO
-    !        !
-    !    END DO
-    !    DEALLOCATE(switchedState,indA1,indA2)        
-    !END IF
-!@SP
     !
     ! Ending execution and returning control
     !
