@@ -32,6 +32,7 @@ CHARACTER(len = 50) :: ModelName, FileName
 !
 ! Opening files
 !
+!ModelName = "table_1.txt"
 ModelName = "depth0_2agents_delta0.txt"
 FileName = "mod_" // ModelName
 OPEN(UNIT = 10001,FILE = FileName)

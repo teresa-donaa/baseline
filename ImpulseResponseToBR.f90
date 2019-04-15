@@ -170,7 +170,6 @@ CONTAINS
             !
             IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
             p(1,:) = pPrime
-            LastObservedPrices = p
             visitedStatesPre(iPeriod) = computeStateNumber(p)
             DO iAgent = 1, numAgents
                 !
