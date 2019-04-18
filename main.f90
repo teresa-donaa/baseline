@@ -33,7 +33,7 @@ CHARACTER(len = 50) :: ModelName, FileName
 ! Opening files
 !
 !ModelName = "table_1.txt"
-ModelName = "depth0_2agents_delta0.txt"
+ModelName = "IR_delta0_benchmark.txt"
 FileName = "mod_" // ModelName
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)

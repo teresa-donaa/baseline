@@ -532,29 +532,25 @@ CONTAINS
         WRITE(100032,1) (i, i = 1, numAgents), (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
             (i, i = 1, numDemandParameters), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
-            (i, i = 1, numAgents), (i, i = 1, numAgents),  &
-            (i, i = 1, numAgents), (i, i = 1, numAgents),  &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
             ((i, j, j = 1, numPrices), i = 1, numAgents), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice = 1, numPrices), &
-            (((jAgent, (jAgent, iAgent, iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), jAgent, iAgent, iPrice, &
-                jAgent = 1, numAgents), iAgent = 1, numAgents), iPrice = 1, numPrices), &
-            (((jAgent, (jAgent, iAgent, iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), jAgent, iAgent, iPrice, &
-                jAgent = 1, numAgents), iAgent = 1, numAgents), iPrice = 1, numPrices), &
+            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, &
+                (iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, iPrice = 1, numPrices), &
+            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, &
+                (iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, iPrice = 1, numPrices), &
+            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, &
+                (iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, iPrice = 1, numPrices), &
+            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, &
+                (iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, iPrice = 1, numPrices), &
+            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, &
+                (iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, iPrice = 1, numPrices), &
+            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, &
+                (iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, iPrice = 1, numPrices), &
+            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, &
+                (iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, iPrice = 1, numPrices), &
+            ((iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, &
+                (iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), iPrice, iPrice = 1, numPrices), &
             (((jAgent, (jAgent, iAgent, iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), jAgent, iAgent, iPrice, &
                 jAgent = 1, numAgents), iAgent = 1, numAgents), iPrice = 1, numPrices), &
             (((jAgent, (jAgent, iAgent, iPrice, iPeriod, iPeriod = 1, numShockPeriodsPrint), jAgent, iAgent, iPrice, &
@@ -586,15 +582,9 @@ CONTAINS
             <numPrices>(<numAgents>(<numAgents>('Ag', I1, 'avgPricePre', ' ', &
                 <numShockPeriodsPrint>('Ag', I1, 'avgPriceShockAg', I1, 'Pr', I0.2, 'Per', I3.3, ' '), &
                 'Ag', I1, 'avgPricePostAg', I1, 'Pr', I0.2, ' '))), &
-            <numPrices>(<numAgents>(<numAgents>('seAg', I1, 'avgPricePre', ' ', &
-                <numShockPeriodsPrint>('seAg', I1, 'avgPriceShockAg', I1, 'Pr', I0.2, 'Per', I3.3, ' '), &
-                'seAg', I1, 'avgPricePostAg', I1, 'Pr', I0.2, ' '))), &
             <numPrices>(<numAgents>(<numAgents>('Ag', I1, 'avgProfitPre', ' ', &
                 <numShockPeriodsPrint>('Ag', I1, 'avgProfitShockAg', I1, 'Pr', I0.2, 'Per', I3.3, ' '), &
-                'Ag', I1, 'avgProfitPostAg', I1, 'Pr', I0.2, ' '))), &
-            <numPrices>(<numAgents>(<numAgents>('seAg', I1, 'avgProfitPre', ' ', &
-                <numShockPeriodsPrint>('seAg', I1, 'avgProfitShockAg', I1, 'Pr', I0.2, 'Per', I3.3, ' '), &
-                'seAg', I1, 'avgProfitPostAg', I1, 'Pr', I0.2, ' '))) &
+                'Ag', I1, 'avgProfitPostAg', I1, 'Pr', I0.2, ' '))) &
             )
         !
     END IF
@@ -628,9 +618,7 @@ CONTAINS
         <numPrices>(<numShockPeriodsPrint>(F32.7,1X), F25.7, 1X, <numShockPeriodsPrint>(F35.7,1X), F28.7, 1X), &
         <numPrices>(<numShockPeriodsPrint>(F34.7,1X), F27.7, 1X, <numShockPeriodsPrint>(F37.7,1X), F30.7, 1X), &
         <numPrices>(<numAgents>(<numAgents>(F14.7, 1X, <numShockPeriodsPrint>(F29.7, 1X), F22.7, 1X))), &
-        <numPrices>(<numAgents>(<numAgents>(F16.7, 1X, <numShockPeriodsPrint>(F31.7, 1X), F24.7, 1X))), &
-        <numPrices>(<numAgents>(<numAgents>(F15.7, 1X, <numShockPeriodsPrint>(F30.7, 1X), F23.7, 1X))), &
-        <numPrices>(<numAgents>(<numAgents>(F17.7, 1X, <numShockPeriodsPrint>(F32.7, 1X), F25.7, 1X))) &
+        <numPrices>(<numAgents>(<numAgents>(F15.7, 1X, <numShockPeriodsPrint>(F30.7, 1X), F23.7, 1X))) &
         )
     !
     ! Ending execution and returning control

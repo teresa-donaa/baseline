@@ -92,68 +92,69 @@ CONTAINS
     REAL(8), DIMENSION(numAgents), INTENT(OUT) :: NashProfits, CoopProfits, &
         NashMarketShares, CoopMarketShares
     INTEGER, DIMENSION(numAgents), INTENT(OUT) :: indexNashPrices, indexCoopPrices
-    REAL(8), INTENT(OUT) :: PricesGrids(numPrices,numAgents)
+    REAL(8), DIMENSION(numPrices,numAgents), INTENT(OUT) :: PricesGrids
     !
     ! Declaring local variables
     !
-    REAL(8) :: gamma
+    REAL(8) :: gamma, extend(2), objFct
+    REAL(8), DIMENSION(numAgents) :: a, c, d, stepPrices, prices
+    INTEGER :: i, j, iter, iAgent
     !
     ! Beginning execution
+    !
+    ! Computing PI matrices
     !
     ! Extract demand parameters
     !
     gamma = DemandParameters(1)
+    extend = DemandParameters(2:3)
     !
-    ! Computing PI matrices for numAgents == 2 and numAgents == 3
+    ! 1. Compute repeated Nash profits
     !
-    IF (numPrices .EQ. 2) THEN
+    NashMarketShares = linearDemands(gamma,NashPrices)
+    NashProfits = NashPrices*NashMarketShares
+    !
+    ! 2. Compute cooperation profits
+    !
+    CoopMarketShares = linearDemands(gamma,CoopPrices)
+    CoopProfits = CoopPrices*CoopMarketShares
+    !
+    ! 3. Compute price grid
+    !
+    DO iAgent = 1, numAgents
         !
-        PI(1,1) = 0.d0
-        PI(2,1) = -(1.d0-gamma)/(1.d0-2.d0*gamma)
-        PI(3,1) = 2.d0
-        PI(4,1) = 1.d0
+        PricesGrids(1,iAgent) = MAX(0.d0,NashPrices(iAgent)-extend(1)*(CoopPrices(iAgent)-NashPrices(iAgent)))
+        PricesGrids(numPrices,iAgent) = MAX(0.d0,CoopPrices(iAgent)+extend(2)*(CoopPrices(iAgent)-NashPrices(iAgent)))
         !
-        PI(1,2) = 0.d0
-        PI(2,2) = 2.d0
-        PI(3,2) = -(1.d0-gamma)/(1.d0-2.d0*gamma)
-        PI(4,2) = 1.d0
+    END DO
+    stepPrices = (PricesGrids(numPrices,:)-PricesGrids(1,:))/(numPrices-1)
+    DO i = 2, numPrices-1
         !
-        PricesGrids(1,:) = (1.d0-2.d0*gamma)/(2.d0-3.d0*gamma)
-        PricesGrids(2,:) = 0.5d0
+        PricesGrids(i,:) = PricesGrids(i-1,:)+stepPrices
         !
-    ELSE IF (numPrices .EQ. 3) THEN
+    END DO
+    !
+    ! 4. Compute Pi matrices
+    !
+    DO i = 1, numActions
         !
-        PI(1,1) = 0.d0
-        PI(2,1) = -gamma**2/(4.d0-12.d0*gamma+8.d0*gamma**2)
-        PI(3,1) = -(1.d0-gamma)/(1.d0-2.d0*gamma)
-        PI(4,1) = gamma/(1.d0-gamma)
-        PI(5,1) = gamma*(4.d0-5.d0*gamma)/(4.d0*(1.d0-gamma)**2)
-        PI(6,1) = (-2.d0+6.d0*gamma-5.d0*gamma**2)/(2.d0-6.d0*gamma+4.d0*gamma**2)
-        PI(7,1) = 2.d0
-        PI(8,1) = (8.d0-24.d0*gamma+17.d0*gamma**2)/(4.d0-12.d0*gamma+8.d0*gamma**2)
-        PI(9,1) = 1.d0
+        DO j = 1, numAgents
+            !
+            prices(j) = PricesGrids(indexActions(i,j),j)
+            !
+        END DO
         !
-        PI(1,2) = 0.d0
-        PI(2,2) = gamma/(1.d0-gamma)
-        PI(3,2) = 2.d0
-        PI(4,2) = -gamma**2/(4.d0-12.d0*gamma+8.d0*gamma**2)
-        PI(5,2) = gamma*(4.d0-5.d0*gamma)/(4.d0*(1.d0-gamma)**2)
-        PI(6,2) = (8.d0-24.d0*gamma+17.d0*gamma**2)/(4.d0-12.d0*gamma+8.d0*gamma**2)
-        PI(7,2) = -(1.d0-gamma)/(1.d0-2.d0*gamma)
-        PI(8,2) = (-2.d0+6.d0*gamma-5.d0*gamma**2)/(2.d0-6.d0*gamma+4.d0*gamma**2)
-        PI(9,2) = 1.d0
+        d = linearDemands(gamma,prices)
+        PI(i,:) = prices*d
         !
-        PricesGrids(1,:) = (1.d0-2.d0*gamma)/(2.d0-3.d0*gamma)
-        PricesGrids(2,:) = 0.25d0*(3.d0-1.d0/(1.d0-gamma))
-        PricesGrids(3,:) = 0.5d0
-        !
-    END IF
-    indexNashPrices = 1
-    indexCoopPrices = numActions
-    NashProfits = PI(1,:)
-    CoopProfits = PI(numActions,:)
-    NashMarketShares = 0.d0
-    CoopMarketShares = 0.d0
+    END DO
+    !
+    ! 5. With linear demand, the repeated Nash prices do no necessarily belong to the
+    !    prices grid. Hence, the indexNashPrices vector is empty. Alternatively, we could
+    !    look for the row in PricesGrids that is closest to NashPrices (not implemented yet)
+    !
+    indexNashPrices = 0
+    indexCoopPrices = 0
     !
     ! Ending execution and returning control
     !
@@ -408,6 +409,32 @@ CONTAINS
     ! Ending execution and returning control
     !
     END FUNCTION logitDemands
+!
+! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+    FUNCTION linearDemands ( gamma, p ) 
+    !
+    ! Computes linear demands
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    REAL(8), INTENT(IN) :: gamma
+    REAL(8), DIMENSION(numAgents), INTENT(IN) :: p
+    !
+    ! Declaring function's type
+    !
+    REAL(8), DIMENSION(numAgents) :: linearDemands
+    !
+    ! Beginning execution
+    !
+    linearDemands(1) = MAX(0.d0,MIN(1.d0-p(1),(1.d0-gamma-p(1)+gamma*p(2))/(1-gamma**2)))
+    linearDemands(2) = MAX(0.d0,MIN(1.d0-p(2),(1.d0-gamma-p(2)+gamma*p(1))/(1-gamma**2)))
+    !
+    ! Ending execution and returning control
+    !
+    END FUNCTION linearDemands
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

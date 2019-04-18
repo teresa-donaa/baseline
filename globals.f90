@@ -141,7 +141,7 @@ CONTAINS
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) typePayoffInput
     IF (typePayoffInput .EQ. 0) numDemandParameters = numActions                ! Pi1 matrix
-    IF (typePayoffInput .EQ. 1) numDemandParameters = 1                         ! sigma
+    IF (typePayoffInput .EQ. 1) numDemandParameters = 1+2                       ! gamma, extend
     IF (typePayoffInput .EQ. 2) numDemandParameters = 2*numAgents+4             ! a0, ai, ci, sigma, extend
     IF (typePayoffInput .EQ. 3) numDemandParameters = 2*numAgents+4             ! a0, ai, ci, sigma = 0, extend
     READ(unitNumber,'(1X)')
