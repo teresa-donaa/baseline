@@ -28,12 +28,13 @@ INTEGER :: numModels, FirstModel, numCores, numGames, itersPerYear, maxNumYears,
     computeImpulseResponseToBR, computeImpulseResponseToNash, computeImpulseResponseToAll, &
     computeEquilibriumCheck, computePIGapToMaximum, computeQGapToMaximum, computeRestart
 REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit,gammaSinghVives
-CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastState
+CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastState, FileNamePriceCycles
 !
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
-    cStates(:), cActions(:), &
+    cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
     indexNashStrategies(:,:), indexPrintStrategies(:,:), &
-    indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:)
+    indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
+    computeMixedStrategies(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     vecProfit(:,:), vecProfitQ(:,:), &
     vecAvgProfit(:), vecAvgProfitQ(:), freqStates(:,:), &
@@ -115,6 +116,7 @@ CONTAINS
     IF (useNashStrategies .EQ. 0) numPrintStrategies = numOtherStrategies
     IF (useNashStrategies .EQ. 1) numPrintStrategies = numNashStrategies+numOtherStrategies
     numPrintStrategies = MAX(1,numPrintStrategies)
+    ALLOCATE(computeMixedStrategies(numAgents))
     !
     ! Continue reading input settings
     !
@@ -165,6 +167,8 @@ CONTAINS
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) computeRestart
     READ(unitNumber,'(1X)')
+    READ(unitNumber,*) computeMixedStrategies
+    READ(unitNumber,'(1X)')
     !
     ! Allocating matrices and vectors
     !
@@ -188,8 +192,8 @@ CONTAINS
         indexNashPrices(numAgents),indexCoopPrices(numAgents), &
         NashPrices(numAgents),CoopPrices(numAgents), &
         NashMarketShares(numAgents),CoopMarketShares(numAgents),PricesGrids(numPrices,numAgents), &
-        IsTot(numStates,numAgents), IsOnPath(numStates,numAgents), IsBRAllStates(numStates,numAgents), &
-        IsBRonPath(numStates,numAgents), IsEqAllStates(numStates,numAgents), IsEqonPath(numStates,numAgents))
+        IsTot(numStates,numAgents),IsOnPath(numStates,numAgents),IsBRAllStates(numStates,numAgents), &
+        IsBRonPath(numStates,numAgents),IsEqAllStates(numStates,numAgents),IsEqonPath(numStates,numAgents))
     ALLOCATE(CHARACTER(len = 3+lengthStatesPrint) :: labelStates(numStates))
     !
     cStates = (/ (numPrices**i, i = LengthStates-1, 0, -1) /)
@@ -226,7 +230,7 @@ CONTAINS
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
-        IsTot,IsOnPath,IsBRAllStates,IsBRonPath,IsEqAllStates,IsEqonPath)
+        IsTot,IsOnPath,IsBRAllStates,IsBRonPath,IsEqAllStates,IsEqonPath,computeMixedStrategies)
     IF (useNashStrategies .EQ. 1) DEALLOCATE(indexNashStrategies)
     !
     ! Ending execution and returning control
