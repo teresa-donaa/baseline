@@ -8,22 +8,18 @@ IMPLICIT NONE
 !
 ! Parameters
 !
-INTEGER, PARAMETER :: numQLParameters = 3
-INTEGER, PARAMETER :: numThresFrequencies = 5
-INTEGER, PARAMETER :: thresFrequencies(numThresFrequencies) = (/ 1, 3, 5, 10, 20 /)
-INTEGER, PARAMETER :: QTrajectoriesPeriodPrint = 120
 REAL(8), PARAMETER :: twoOverPi = 0.636619772367581343075535053490d0    ! 2/Pi
 REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
 !
 ! Variables
 !
 INTEGER :: numModels, FirstModel, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
-    itersInPerfMeasPeriod, printExp, printQ, codModel, &
-    PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, numNashStrategies, &
-    numPrintStrategies, typeExplorationMechanism, useNashStrategies, useOtherStrategies, &
+    itersInPerfMeasPeriod, printQ, codModel, &
+    PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
+    typeExplorationMechanism, &
     DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
-    lengthStrategiesPrint, typePayoffInput, &
-    numAgents, numActions, numDemandParameters, numOtherStrategies, &
+    typePayoffInput, &
+    numAgents, numActions, numDemandParameters, &
     numExplorationParameters, computeQLearningResults, computeConvergenceResults, computePreShockCycles, &
     computeImpulseResponseToBR, computeImpulseResponseToNash, computeImpulseResponseToAll, &
     computeEquilibriumCheck, computePIGapToMaximum, computeQGapToMaximum, computeRestart
@@ -32,16 +28,14 @@ CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastSt
 !
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
-    indexNashStrategies(:,:), indexPrintStrategies(:,:), &
     indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
     computeMixedStrategies(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     vecProfit(:,:), vecProfitQ(:,:), &
     vecAvgProfit(:), vecAvgProfitQ(:), freqStates(:,:), &
     maxValQ(:,:), meanFreqStates(:), NashPrices(:), CoopPrices(:), &
-    avgFreqStatesMostObsStrategies(:,:), PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), &
-    freqMostObsStrategies(:), meanProfGainMostObsStrategies(:,:), meanAvgProfGainMostObsStrategies(:), &
-    avgTTCMostObsStrategies(:), alpha(:), delta(:), & 
+    PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), &
+    alpha(:), delta(:), & 
     meanProfit(:), seProfit(:), meanProfitGain(:), seProfitGain(:), DemandParameters(:), &
     NashMarketShares(:), CoopMarketShares(:), PricesGrids(:,:), MExpl(:), ExplorationParameters(:)
 CHARACTER(len = :), ALLOCATABLE :: labelStates(:)
@@ -92,14 +86,6 @@ CONTAINS
     DepthState = MAX(1,DepthState0)          ! Accomodates the DepthState = 0 case
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) numPrices
-    READ(unitNumber,'(1X)')
-    READ(unitNumber,*) useNashStrategies
-    READ(unitNumber,'(1X)')
-    READ(unitNumber,*) numNashStrategies
-    READ(unitNumber,'(1X)')
-    READ(unitNumber,*) useOtherStrategies
-    READ(unitNumber,'(1X)')
-    READ(unitNumber,*) numOtherStrategies
     !
     ! Global variables
     !
@@ -112,29 +98,10 @@ CONTAINS
                                         ! they coincide with states when DepthState == 1
     lengthStrategies = numAgents*numStates
     lengthFormatActionPrint = FLOOR(LOG10(DBLE(numPrices)))+1
-    lengthStrategiesPrint = lengthFormatActionPrint*lengthStrategies+lengthStrategies-1
-    IF (useNashStrategies .EQ. 0) numPrintStrategies = numOtherStrategies
-    IF (useNashStrategies .EQ. 1) numPrintStrategies = numNashStrategies+numOtherStrategies
-    numPrintStrategies = MAX(1,numPrintStrategies)
     ALLOCATE(computeMixedStrategies(numAgents))
     !
     ! Continue reading input settings
     !
-    IF (useNashStrategies .EQ. 1) THEN
-        !        
-        ALLOCATE(indexNashStrategies(lengthStrategies,numNashStrategies))
-        READ(unitNumber,'(1X)')
-        DO i = 1, numNashStrategies
-            !
-            READ(unitNumber,*) indexNashStrategies(:,i)
-            !
-        END DO
-        !
-    ELSE IF (useNashStrategies .EQ. 0) THEN
-        !
-        READ(unitNumber,'(<numNashStrategies>(/))')
-        !
-    END IF
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) typeExplorationMechanism
     IF (typeExplorationMechanism .EQ. 1) numExplorationParameters = 1*numAgents           ! Constant 
@@ -179,13 +146,8 @@ CONTAINS
         vecAvgProfit(numGames),vecAvgProfitQ(numGames), freqStates(numStates,numGames), &
         converged(numGames),maskConverged(numGames),cStates(LengthStates),cActions(numAgents), &
         maxValQ(numStates,numAgents),meanFreqStates(numStates), &
-        avgFreqStatesMostObsStrategies(numStates,numPrintStrategies), &
-        indexPrintStrategies(lengthStrategies,numPrintStrategies), &
-        freqMostObsStrategies(numPrintStrategies),DemandParameters(numDemandParameters), &
+        DemandParameters(numDemandParameters), &
         ExplorationParameters(numExplorationParameters), MExpl(numExplorationParameters), &
-        meanProfGainMostObsStrategies(numPrintStrategies,numAgents), &
-        meanAvgProfGainMostObsStrategies(numPrintStrategies), &
-        avgTTCMostObsStrategies(numPrintStrategies), &
         alpha(numAgents),delta(numAgents),NashProfits(numAgents),CoopProfits(numAgents), &
         meanProfit(numAgents),seProfit(numAgents),meanProfitGain(numAgents),seProfitGain(numAgents), &
         PI(numActions,numAgents),PIQ(numActions,numAgents),avgPI(numActions),avgPIQ(numActions), &
@@ -224,14 +186,12 @@ CONTAINS
     !
     DEALLOCATE(freqStates,indexActions,timeToConvergence,vecProfit,vecProfitQ, &
         vecAvgProfit,vecAvgProfitQ,converged,maskConverged,cStates,cActions,maxValQ, &
-        meanFreqStates,avgFreqStatesMostObsStrategies,labelStates,indexStates, &
-        indexPrintStrategies,freqMostObsStrategies,meanProfGainMostObsStrategies, &
-        meanAvgProfGainMostObsStrategies,avgTTCMostObsStrategies,NashProfits,CoopProfits, &
+        meanFreqStates,labelStates,indexStates, &
+        NashProfits,CoopProfits, &
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
         IsTot,IsOnPath,IsBRAllStates,IsBRonPath,IsEqAllStates,IsEqonPath,computeMixedStrategies)
-    IF (useNashStrategies .EQ. 1) DEALLOCATE(indexNashStrategies)
     !
     ! Ending execution and returning control
     !
@@ -255,7 +215,7 @@ CONTAINS
     !
     ! Beginning execution
     !
-    READ(unitNumber,*) codModel, printExp, printQ, alpha, MExpl, delta, &
+    READ(unitNumber,*) codModel, printQ, alpha, MExpl, delta, &
         DemandParameters, NashPrices, CoopPrices
     IF (typeExplorationMechanism .EQ. 2) THEN
         !

@@ -26,7 +26,6 @@ REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
 REAL(8) :: meanAvgProfit, seAvgProfit
 REAL(8) :: meanAvgProfitGain, seAvgProfitGain
 REAL(8) :: herfFreq, entropyFreq, giniFreq, freqSymmetricStrategies
-INTEGER :: countThresFrequencies(numThresFrequencies)
 CHARACTER(len = 50) :: ModelName, FileName, FileNameMSR
 REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
