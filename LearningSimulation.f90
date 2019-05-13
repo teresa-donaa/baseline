@@ -12,7 +12,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE computeModel ( iModel, alpha, ExplorationParameters, delta, &
+    SUBROUTINE computeModel ( iModel, codModel, alpha, ExplorationParameters, delta, &
         converged, indexLastState, timeToConvergence )
     !
     ! Computes statistics for one model
@@ -21,7 +21,7 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
-    INTEGER, INTENT(IN) :: iModel
+    INTEGER, INTENT(IN) :: iModel, codModel
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: alpha, delta
     REAL(8), DIMENSION(numExplorationParameters) :: ExplorationParameters
     INTEGER, DIMENSION(numGames), INTENT(OUT) :: converged
@@ -41,11 +41,9 @@ CONTAINS
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies
-    CHARACTER(len = 25) :: printQFileName
-    CHARACTER(len = 3) :: iGamesChar
-    REAL(8), ALLOCATABLE :: Qtrajectories(:,:)
-    REAL(8), ALLOCATABLE :: Ptrajectories(:,:)
-    REAL(8) :: RDeviation
+    CHARACTER(len = 25) :: QFileName
+    CHARACTER(len = 5) :: iGamesChar
+    CHARACTER(len = 5) :: codModelChar
     !
     ! Beginning execution
     !
@@ -55,6 +53,7 @@ CONTAINS
     indexStrategies = 0
     indexLastState = 0
     timeToConvergence = 0.d0
+    WRITE(codModelChar,'(I0.5)') codModel
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Loop over numGames
@@ -77,9 +76,9 @@ CONTAINS
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy, &
     !$omp   convergedGame,pricesGridsPrime, &
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
-    !$omp   printQFileName,iGamesChar) &
+    !$omp   QFileName,iGamesChar) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
-    !$omp   itersInPerfMeasPeriod,maxIters,printQ,Qtrajectories,Ptrajectories)
+    !$omp   itersInPerfMeasPeriod,maxIters,printQ,codModelChar)
     DO iGames = 1, numGames
         !
         PRINT*, 'Game = ', iGames, ' started'
@@ -104,15 +103,6 @@ CONTAINS
         !
         CALL initState(uIniPrice(:,:,iGames),p,statePrime,actionPrime)
         state = statePrime
-        !
-        ! Allocate Qtrajectories and Ptrajectories matrices
-        !
-        IF (iGames .LE. printQ) THEN
-            !
-            ALLOCATE(Qtrajectories(itersInPerfMeasPeriod/QTrajectoriesPeriodPrint,lengthStrategies*numPrices), &
-                     Ptrajectories(itersInPerfMeasPeriod,numAgents))
-            !
-        END IF
         !
         ! Loop
         !
@@ -170,9 +160,6 @@ CONTAINS
                 END IF
                 !
             END DO
-!@SP Sanity check    
-!strategyPrime(1,1) = 14
-!@SP Sanity check    
             !
             ! Measuring performance
             !
@@ -199,29 +186,6 @@ CONTAINS
                     iItersInStrategy = iItersInStrategy+1
                     !
                 END IF
-                !
-            END IF
-            !
-            ! Add a line to Qtrajectories and Ptrajectories output file
-            !
-            IF (iGames .LE. printQ) THEN
-                !
-                ! Qtrajectories
-                !
-                IF (MOD(iItersInStrategy,QTrajectoriesPeriodPrint) .EQ. 0) THEN
-                    !
-                    DO iAgent = 1, numAgents
-                        !
-                        Qtrajectories(iItersInStrategy/QTrajectoriesPeriodPrint,(iAgent-1)*numStates*numPrices+1:iAgent*numStates*numPrices) = &
-                            RESHAPE(TRANSPOSE(Q(:,:,iAgent)),(/ numStates*numPrices /))
-                        !
-                    END DO
-                    !
-                END IF
-                !
-                ! Ptrajectories
-                !
-                Ptrajectories(iItersInStrategy,:) = pricesGridsPrime
                 !
             END IF
             !
@@ -252,53 +216,34 @@ CONTAINS
             !
         END DO          
         !
-        ! Write Qtrajectories and Ptrajectories output file
+        ! Write Q matrices to file
         !
-        IF (iGames .LE. printQ) THEN
+        !$omp critical
+        IF (printQ .EQ. 1) THEN
             !
-            ! Opening Qtrajectories output file
+            ! Open Q matrices output file
             !
-            WRITE(iGamesChar,'(I0.3)') iGames
-            printQFileName = 'Qtrajectories_' // iGamesChar // '.txt'
-            OPEN(UNIT = iGames,FILE = printQFileName)
+            WRITE(iGamesChar,'(I0.5)') iGames
+            QFileName = 'Q_' // codModelChar // '_' // iGamesChar // '.txt'
             !
-            ! Writing on Qtrajectories output file
+            ! Write on Q matrices to file
             !
-            WRITE(iGames,11) (((iAgent, iState, iPrice, iPrice = 1, numPrices), &
-                iState = 1, numStates), iAgent = 1, numAgents)
-11          FORMAT('     Iter ', &
-                <6750>('  Q', I1, '(', I3, ',', I2, ') '))
-!@SP USE NUMERIC VALUE <lengthStrategies*numPrices>
-            WRITE(iGames,12) (iIters*QTrajectoriesPeriodPrint, Qtrajectories(iIters,:), iIters = 1, itersInPerfMeasPeriod/QTrajectoriesPeriodPrint)
-12          FORMAT(<219>(I9, 1X, <6750>(F12.5, 1X), /))
-!@SP USE NUMERIC VALUE <itersInPerfMeasPeriod/QTrajectoriesPeriodPrint>
-            !
-            ! Closing Qtrajectories output file
-            !
+            OPEN(UNIT = iGames,FILE = QFileName,RECL = 10000)
+            DO iAgent = 1, numAgents
+                !
+                DO iState = 1, numStates
+                    !
+                    WRITE(iGames,*) Q(iState,:,iAgent)
+                    !
+                END DO
+                !
+            END DO
             CLOSE(UNIT = iGames)
-            !
-            ! Opening output file
-            !
-            printQFileName = 'Ptrajectories_' // iGamesChar // '.txt'
-            OPEN(UNIT = iGames,FILE = printQFileName)
-            !
-            ! Writing on output file
-            !
-            WRITE(iGames,13) (iAgent, iAgent = 1, numAgents)
-13          FORMAT('     Iter    pPrime(', I1, ')    pPrime(', I1, ')')
-            WRITE(iGames,14) (iIters, Ptrajectories(iIters,:), iIters = 1, itersInPerfMeasPeriod)
-14          FORMAT(<26280>(I9, 1X, <2>(F12.5, 1X), /))
-!@SP USE NUMERIC VALUE <itersInPerfMeasPeriod> AND <numAgents>
-            !
-            ! Closing output file
-            !
-            CLOSE(UNIT = iGames)
-            !
-            ! Deallocating Qtrajectories and Ptrajectories matrices
-            !
-            DEALLOCATE(Qtrajectories,Ptrajectories)
             !
         END IF
+        !$omp end critical
+        !
+        ! Record results at convergence
         !
         converged(iGames) = convergedGame
         indexStrategies(:,iGames) = computeStrategyNumber(strategy)

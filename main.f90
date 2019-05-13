@@ -34,7 +34,7 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "figure_1.txt"
+ModelName = "mixedQ_analysis.txt"
 FileName = "mod_" // ModelName
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)
@@ -315,12 +315,12 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
             !
             IF (computeRestart .EQ. 0) THEN
                 !
-                CALL computeModel(iModel,alpha,ExplorationParameters,delta, &
+                CALL computeModel(iModel,codModel,alpha,ExplorationParameters,delta, &
                     converged,indexLastState,timeToConvergence)
                 !
             ELSE IF (computeRestart .EQ. 1) THEN
                 !
-                CALL computeModelRestart(iModel,alpha,ExplorationParameters,delta, &
+                CALL computeModelRestart(iModel,codModel,alpha,ExplorationParameters,delta, &
                     converged,indexLastState,timeToConvergence)
                 !
             END IF
