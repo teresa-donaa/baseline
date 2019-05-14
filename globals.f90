@@ -13,17 +13,14 @@ REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
 !
 ! Variables
 !
-INTEGER :: numModels, FirstModel, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
-    itersInPerfMeasPeriod, printQ, codModel, &
-    PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
-    typeExplorationMechanism, &
-    DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
-    typePayoffInput, &
-    numAgents, numActions, numDemandParameters, &
+INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
+    itersInPerfMeasPeriod, printQ, codModel, PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
+    typeExplorationMechanism, DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
+    typePayoffInput, numAgents, numActions, numDemandParameters, &
     numExplorationParameters, computeQLearningResults, computeConvergenceResults, computePreShockCycles, &
     computeImpulseResponseToBR, computeImpulseResponseToNash, computeImpulseResponseToAll, &
     computeEquilibriumCheck, computePIGapToMaximum, computeQGapToMaximum, computeRestart
-REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit,gammaSinghVives
+REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit, gammaSinghVives
 CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastState, FileNamePriceCycles
 !
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
@@ -31,16 +28,11 @@ INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), in
     indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
     computeMixedStrategies(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
-    vecProfit(:,:), vecProfitQ(:,:), &
-    vecAvgProfit(:), vecAvgProfitQ(:), freqStates(:,:), &
-    maxValQ(:,:), meanFreqStates(:), NashPrices(:), CoopPrices(:), &
-    PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), &
-    alpha(:), delta(:), & 
+    maxValQ(:,:), NashPrices(:), CoopPrices(:), &
+    PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), & 
     meanProfit(:), seProfit(:), meanProfitGain(:), seProfitGain(:), DemandParameters(:), &
     NashMarketShares(:), CoopMarketShares(:), PricesGrids(:,:), MExpl(:), ExplorationParameters(:)
 CHARACTER(len = :), ALLOCATABLE :: labelStates(:)
-LOGICAL, ALLOCATABLE :: maskConverged(:), IsTot(:,:), IsOnPath(:,:), IsBRAllStates(:,:), &
-    IsBRonPath(:,:), IsEqAllStates(:,:), IsEqonPath(:,:) 
 !
 CONTAINS
 !
@@ -65,8 +57,6 @@ CONTAINS
     !
     READ(unitNumber,'(1X)') 
     READ(unitNumber,*) numModels
-    READ(unitNumber,'(1X)') 
-    READ(unitNumber,*) FirstModel
     READ(unitNumber,'(1X)') 
     READ(unitNumber,*) numCores
     READ(unitNumber,'(1X)')
@@ -139,23 +129,17 @@ CONTAINS
     !
     ! Allocating matrices and vectors
     !
-    ALLOCATE(indexActions(numActions,numAgents), &
-        indexStates(numStates,LengthStates), &
-        indexEquivalentStates(numStates,numAgents), &
-        timeToConvergence(numGames),vecProfit(numGames,numAgents),vecProfitQ(numGames,numAgents), &
-        vecAvgProfit(numGames),vecAvgProfitQ(numGames), freqStates(numStates,numGames), &
-        converged(numGames),maskConverged(numGames),cStates(LengthStates),cActions(numAgents), &
-        maxValQ(numStates,numAgents),meanFreqStates(numStates), &
-        DemandParameters(numDemandParameters), &
+    ALLOCATE(indexActions(numActions,numAgents), indexStates(numStates,LengthStates), &
+        indexEquivalentStates(numStates,numAgents), timeToConvergence(numGames), &
+        converged(numGames),cStates(LengthStates),cActions(numAgents), &
+        maxValQ(numStates,numAgents), DemandParameters(numDemandParameters), &
         ExplorationParameters(numExplorationParameters), MExpl(numExplorationParameters), &
         alpha(numAgents),delta(numAgents),NashProfits(numAgents),CoopProfits(numAgents), &
         meanProfit(numAgents),seProfit(numAgents),meanProfitGain(numAgents),seProfitGain(numAgents), &
         PI(numActions,numAgents),PIQ(numActions,numAgents),avgPI(numActions),avgPIQ(numActions), &
         indexNashPrices(numAgents),indexCoopPrices(numAgents), &
         NashPrices(numAgents),CoopPrices(numAgents), &
-        NashMarketShares(numAgents),CoopMarketShares(numAgents),PricesGrids(numPrices,numAgents), &
-        IsTot(numStates,numAgents),IsOnPath(numStates,numAgents),IsBRAllStates(numStates,numAgents), &
-        IsBRonPath(numStates,numAgents),IsEqAllStates(numStates,numAgents),IsEqonPath(numStates,numAgents))
+        NashMarketShares(numAgents),CoopMarketShares(numAgents),PricesGrids(numPrices,numAgents))
     ALLOCATE(CHARACTER(len = 3+lengthStatesPrint) :: labelStates(numStates))
     !
     cStates = (/ (numPrices**i, i = LengthStates-1, 0, -1) /)
@@ -184,14 +168,12 @@ CONTAINS
     !
     ! Beginning execution
     !
-    DEALLOCATE(freqStates,indexActions,timeToConvergence,vecProfit,vecProfitQ, &
-        vecAvgProfit,vecAvgProfitQ,converged,maskConverged,cStates,cActions,maxValQ, &
-        meanFreqStates,labelStates,indexStates, &
-        NashProfits,CoopProfits, &
+    DEALLOCATE(indexActions,timeToConvergence,converged,cStates,cActions,maxValQ, &
+        labelStates,indexStates,NashProfits,CoopProfits, &
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
-        IsTot,IsOnPath,IsBRAllStates,IsBRonPath,IsEqAllStates,IsEqonPath,computeMixedStrategies)
+        computeMixedStrategies)
     !
     ! Ending execution and returning control
     !
