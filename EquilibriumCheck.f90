@@ -350,7 +350,7 @@ CONTAINS
             (iThres, iThres, iThres, iThres, iThres, (iThres, iAgent, iThres, iAgent, iThres, iAgent, iAgent = 1, numAgents), iThres = 1, numThresPathCycleLength)
 1           FORMAT('Model ', &
             <numAgents>('    alpha', I1, ' '), &
-            <numExplorationParameters>(' MExplPar', I1, ' '), &
+            <numExplorationParameters>('     beta', I1, ' '), &
             <numAgents>('    delta', I1, ' '), <numDemandParameters>('  DemPar', I2.2, ' '), &
             <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &

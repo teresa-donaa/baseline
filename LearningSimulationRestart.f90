@@ -34,7 +34,8 @@ CONTAINS
     REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
     INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
-    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents), u(2), eps(numAgents)
+    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
+    REAL(8) :: uRandomSampling(numGames,numAgents), u(2), eps(numAgents)
     REAL(8) :: newq, oldq
     INTEGER :: iIters, i, j, iGames, iItersInStrategy, convergedGame
     INTEGER :: state, statePrime, actionPrime
@@ -67,7 +68,9 @@ CONTAINS
     idum2IP = 123456789
     ivIP = 0
     iyIP = 0
-    CALL generate_uIniPrice(numGames,uIniPrice,idumIP,ivIP,iyIP,idum2IP)  
+    CALL generate_uIniPrice(uIniPrice,idumIP,ivIP,iyIP,idum2IP)  
+    uRandomSampling = 0.d0
+    IF (ANY(typeQInitialization .GT. 0)) CALL generateURandomSampling(uRandomSampling,idumIP,ivIP,iyIP,idum2IP)  
     !
     ! Starting loop over games
     !
@@ -78,7 +81,7 @@ CONTAINS
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
-    !$omp   itersInPerfMeasPeriod,maxIters,printQ,codModelChar)
+    !$omp   itersInPerfMeasPeriod,maxIters,printQ,codModelChar,uRandomSampling)
     DO iGames = 1, numGames
         !
         PRINT*, 'iGames = ', iGames
@@ -96,7 +99,9 @@ CONTAINS
         !
         ! Initializing Q matrices
         !
-        CALL initQMatrices(PI,delta,Q,maxValQ,strategyPrime)
+        !$omp critical
+        CALL initQMatrices(iGames,uRandomSampling(iGames,:),PI,delta,Q,maxValQ,strategyPrime)
+        !$omp end critical
         strategy = strategyPrime
         !
         ! Randomly initializing prices and state
@@ -405,8 +410,6 @@ CONTAINS
     !
     IF (typeExplorationMechanism .EQ. 1) THEN
         !
-        eps = ExplorationParameters
-        !
         DO iAgent = 1, numAgents-computeRestart
             !
             pPrime(iAgent) = strategyPrime(state,iAgent)        ! "Expert" agents do not experiment
@@ -414,6 +417,7 @@ CONTAINS
         END DO
         DO iAgent = numAgents-computeRestart+1, numAgents
             !
+            eps(iAgent) = ExplorationParameters(iAgent)
             u = uExploration(:,iAgent)                          ! "Non-Expert" agents can experiment
             IF (u(1) .LE. eps(iAgent)) THEN
                 !
@@ -433,8 +437,6 @@ CONTAINS
     !
     IF (typeExplorationMechanism .GE. 2) THEN
         !
-        eps = EXP(-ExplorationParameters*DBLE(iIters-1)/DBLE(itersPerYear))
-        !
         DO iAgent = 1, numAgents-computeRestart
             !
             pPrime(iAgent) = strategyPrime(state,iAgent)        ! "Expert" agents do not experiment
@@ -442,6 +444,15 @@ CONTAINS
         END DO
         DO iAgent = numAgents-computeRestart+1, numAgents
             !
+            IF (ExplorationParameters(iAgent) .LT. 0.d0) THEN
+                !
+                eps(iAgent) = 0.d0
+                !
+            ELSE
+                !
+                eps(iAgent) = EXP(-ExplorationParameters(iAgent)*DBLE(iIters-1)/DBLE(itersPerYear))
+                !
+            END IF
             u = uExploration(:,iAgent)                          ! "Non-Expert" agents can experiment
             IF (u(1) .LE. eps(iAgent)) THEN
                 !

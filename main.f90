@@ -18,7 +18,7 @@ USE generic_routines
 !
 IMPLICIT NONE
 !
-! Declaring variables
+! Declaring variables and parameters
 !
 INTEGER :: iModel, iter, i, j, h, iGames, numGamesConverged, iAgent, errcode, nlines
 REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
@@ -32,7 +32,11 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "mixedQ_analysis.txt"
+Q1FileFolderName = "C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_05920/"
+Q2FileFolderName = "C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_00503/"
+!
+ModelName = "mixedQ_analysis_5920_503.txt"
+!
 FileName = "mod_" // ModelName
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)

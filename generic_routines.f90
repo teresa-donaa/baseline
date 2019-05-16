@@ -114,6 +114,94 @@ CONTAINS
     ! Ending execution and returning control
     !
     END function ran2
+!
+! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+    SUBROUTINE generateCombinations ( rows, cols, lengths, x, totrows, comb )   
+    !
+    ! Computes all possible (TOTROWS) combinations of the columns of 
+    ! the (ROWS x COLS) integer matrix X, considering only the first
+    ! LENGTHS elements in each column, with L an (COLS x 1) vector.
+    ! Notice that TOTROWS is the product of the elements of LENGTHS
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    INTEGER, INTENT(IN) :: rows, cols, totrows
+    INTEGER, INTENT(IN) :: lengths(cols)
+    INTEGER, INTENT(IN) :: x(rows,cols)
+    INTEGER, INTENT(OUT) :: comb(totrows,cols)
+    !
+    ! Declaring local variables
+    !
+    INTEGER :: itotrows, itmp, icol, index
+    !
+    ! Beginning execution
+    !
+    DO itotrows = 1, totrows
+        !
+        itmp = itotrows-1
+        DO icol = cols, 1, -1
+            !
+            index = 1+MOD(itmp,lengths(icol))
+            itmp = itmp/lengths(icol)
+            !
+            comb(itotrows,icol) = x(index,icol)
+            !
+        END DO
+        !
+    END DO
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE generateCombinations
+!
+! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+    SUBROUTINE updateVectorAverage ( m, n, x, xbar )   
+    !
+    ! Updates an real m-dimensional running average using the formula:
+    ! xbar(n) = (n-1)/n*xbar(n-1) + x/n
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    INTEGER, INTENT(IN) :: m, n
+    REAL(8), DIMENSION(m), INTENT(IN) :: x
+    REAL(8), DIMENSION(m), INTENT(INOUT) :: xbar
+    !
+    ! Beginning execution
+    !
+    xbar = DBLE(n-1)/DBLE(n)*xbar+x/DBLE(n)
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE updateVectorAverage
+!
+! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+    SUBROUTINE updateScalarAverage ( n, x, xbar )   
+    !
+    ! Updates an real scalar running average using the formula:
+    ! xbar(n) = (n-1)/n*xbar(n-1) + x/n
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    INTEGER, INTENT(IN) :: n
+    REAL(8), INTENT(IN) :: x
+    REAL(8), INTENT(INOUT) :: xbar
+    !
+    ! Beginning execution
+    !
+    xbar = DBLE(n-1)/DBLE(n)*xbar+x/DBLE(n)
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE updateScalarAverage
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

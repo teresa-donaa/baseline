@@ -11,7 +11,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE initQMatrices ( PI, delta, Q, maxValQ, maxLocQ )
+    SUBROUTINE initQMatrices ( iGames, uRandomSampling, PI, delta, Q, maxValQ, maxLocQ )
     !
     ! Randomly initializing Q matrices
     !
@@ -19,6 +19,8 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
+    INTEGER, INTENT(IN) :: iGames
+    REAL(8), DIMENSION(numAgents), INTENT(IN) :: uRandomSampling
     REAL(8), DIMENSION(numActions,numAgents), INTENT(IN) :: PI
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
     REAL(8), DIMENSION(numStates,numPrices,numAgents), INTENT(OUT) :: Q
@@ -27,88 +29,74 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    INTEGER :: iAgent, iPrice, p(DepthState,numAgents), iAction, iNash, iDevNash
-    INTEGER :: devPrices(numAgents)
+    INTEGER :: iAgent, iPrice, iState, i 
+    INTEGER :: status
     REAL(8) :: den
+    CHARACTER(len = 225) :: QFileName
+    CHARACTER(len = 5) :: iChar
+    CHARACTER(len = 5) :: codModelChar
+    CHARACTER(len = 200) :: QFileFolderName
     !
     ! Beginning execution
     !
-    ! 1. Randomizing over the opponents decisions
-    !
-!@SP initQNash
-!@SP initQCoop
     DO iAgent = 1, numAgents
         !
-        DO iPrice = 1, numPrices
+        IF (typeQInitialization(iAgent) .EQ. 0) THEN
             !
-            den = COUNT(indexActions(:,iAgent) .EQ. iPrice)*(1.d0-delta(iAgent))
-            Q(:,iPrice,iAgent) = SUM(PI(:,iAgent),MASK = indexActions(:,iAgent) .EQ. iPrice)/den
+            ! Randomizing over the opponents decisions
             !
-        END DO
+            DO iPrice = 1, numPrices
+                !
+                den = COUNT(indexActions(:,iAgent) .EQ. iPrice)*(1.d0-delta(iAgent))
+                Q(:,iPrice,iAgent) = SUM(PI(:,iAgent),MASK = indexActions(:,iAgent) .EQ. iPrice)/den
+                !
+            END DO
+            !
+        ELSE IF (typeQInitialization(iAgent) .GT. 0) THEN
+            !
+            ! Start from a randomly drawn Q matrix at convergence 
+            ! on model "typeQInitialization(iAgent)"
+            !
+            WRITE(codModelChar,'(I0.5)') typeQInitialization(iAgent)
+            i = 1+INT(DBLE(numGames)*uRandomSampling(iAgent))
+            WRITE(iChar,'(I0.5)') i
+            QFileName = 'Q_' // codModelChar // '_' // iChar // '.txt'
+            IF (iAgent .EQ. 1) THEN
+                !
+                QFileFolderName = Q1FileFolderName
+                !
+            ELSE IF (iAgent .EQ. 2) THEN
+                !
+                QFileFolderName = Q2FileFolderName
+                !
+            ELSE
+                !
+                PRINT*, 'Reading external Q matrix only implemented for 2 agents in QL_routines.f90'
+                PAUSE
+                !
+            END IF
+            QFileName = TRIM(QFileFolderName) // TRIM(QFileName)
+            !
+            ! Write on Q matrices to file
+            !
+            OPEN(UNIT = iGames,FILE = QFileName,READONLY,RECL = 10000,IOSTAT = status)
+            IF (iAgent .GT. 1) READ(iGames,100)
+100         FORMAT(<(iAgent-1)*numStates-1>(/))
+            DO iState = 1, numStates
+                !
+                READ(iGames,*) Q(iState,:,iAgent)
+                !
+            END DO
+            CLOSE(UNIT = iGames)
+            !
+        END IF
         !
     END DO
-!@SP initQCoop
-!@SP initQNash
     !
-    ! 2. Repeated Nash equilibrium
-    !
-!@SP initQNash
-!Q(1,:,1) = PI(numPrices+1:2*numPrices,2)/(1.d0-delta(1))
-!Q(1,:,2) = Q(1,:,1)
-!@SP initQNash
-!@SP initQCoop
-!Q(1,:,1) = PI(13*numPrices+1:14*numPrices,2)/(1.d0-delta(1))
-!Q(1,:,2) = Q(1,:,1)
-!@SP initQCoop
-    !! IMPORTANT: 
-    !! This only works when the repeated Nash equilibrium belongs to the prices grid
-    !
-    !iNash = 0
-    !DO iAction = 1, numActions
-    !    !
-    !    IF (ALL(indexActions(iAction,:) .EQ. indexNashPrices)) THEN
-    !        !
-    !        iNash = iAction
-    !        EXIT
-    !        !
-    !    END IF
-    !    !
-    !END DO
-    !!
-    !DO iAgent = 1, numAgents
-    !    !
-    !    DO iPrice = 1, numPrices
-    !        !
-    !        IF (iPrice .EQ. indexNashPrices(iAgent)) &
-    !            Q(:,iPrice,iAgent) = PI(iNash,iAgent)/(1.d0-delta(iAgent))
-    !        IF (iPrice .NE. indexNashPrices(iAgent)) THEN
-    !            !
-    !            devPrices = indexNashPrices
-    !            devPrices(iAgent) = iPrice
-    !            DO iAction = 1, numActions
-    !                !
-    !                IF (ALL(indexActions(iAction,:) .EQ. devPrices)) THEN
-    !                    !
-    !                    iDevNash = iAction
-    !                    EXIT
-    !                    !
-    !                END IF
-    !                !
-    !            END DO
-    !            Q(:,iPrice,iAgent) = &
-    !                PI(iDevNash,iAgent)+delta(iAgent)*PI(iNash,iAgent)/(1.d0-delta(iAgent))
-    !            !
-    !        END IF
-    !        !
-    !    END DO
-    !    !
-    !END DO
+    ! Find initial optimal strategy
     !
     maxValQ = MAXVAL(Q,DIM = 2)
     maxLocQ = MAXLOC(Q,DIM = 2)
-!@SP Sanity check    
-!maxLocQ(1,1) = 14
-!@SP Sanity check    
     !
     ! Ending execution and returning control
     !
@@ -143,13 +131,12 @@ CONTAINS
 !
 ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !
-    SUBROUTINE generate_uIniPrice ( numGames, uIniPrice, idum, iv, iy, idum2 )   
+    SUBROUTINE generate_uIniPrice ( uIniPrice, idum, iv, iy, idum2 )   
     !
     IMPLICIT NONE
     !
     ! Declaring dummy variables
     !
-    INTEGER, INTENT(IN) :: numGames
     REAL(8), INTENT(OUT) :: uIniPrice(DepthState,numAgents,numGames)
     INTEGER, INTENT(INOUT) :: idum
     INTEGER, INTENT(INOUT) :: iv(32)
@@ -217,6 +204,42 @@ CONTAINS
     ! Ending execution and returning control
     !
     END SUBROUTINE generateUExploration
+!
+! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+    SUBROUTINE generateURandomSampling ( uRandomSampling, idum, iv, iy, idum2 )   
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    REAL(8), INTENT(OUT) :: uRandomSampling(numGames,numAgents)
+    INTEGER, INTENT(INOUT) :: idum
+    INTEGER, INTENT(INOUT) :: iv(32)
+    INTEGER, INTENT(INOUT) :: iy
+    INTEGER, INTENT(INOUT) :: idum2
+    !
+    ! Declaring local variables
+    !
+    INTEGER :: iGame, iAgent
+    !
+    ! Beginning execution
+    !
+    ! Generate U(0,1) draws for price initialization
+    !
+    DO iGame = 1, numGames
+        !
+        DO iAgent = 1, numAgents
+            !
+            uRandomSampling(iGame,iAgent) = ran2(idum,iv,iy,idum2)
+            !
+        END DO
+        !
+    END DO
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE generateURandomSampling
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
@@ -419,7 +442,7 @@ CONTAINS
             ((i, j, j = 1, numPrices), i = 1, numAgents)
 891         FORMAT('Model ', &
             <numAgents>('    alpha', I1, ' '), &
-            <numExplorationParameters>(' MExplPar', I1, ' '), &
+            <numExplorationParameters>('     beta', I1, ' '), &
             <numAgents>('    delta', I1, ' '), <numDemandParameters>('  DemPar', I0.2, ' '), &
             <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &

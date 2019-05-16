@@ -557,7 +557,7 @@ CONTAINS
                 jAgent = 1, numAgents), iAgent = 1, numAgents), iPrice = 1, numPrices)
 1       FORMAT('Model ', &
             <numAgents>('    alpha', I1, ' '), &
-            <numExplorationParameters>(' MExplPar', I1, ' '), &
+            <numExplorationParameters>('     beta', I1, ' '), &
             <numAgents>('    delta', I1, ' '), <numDemandParameters>('  DemPar', I2.2, ' '), &
             <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &

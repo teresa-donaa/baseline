@@ -22,11 +22,12 @@ INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     computeEquilibriumCheck, computePIGapToMaximum, computeQGapToMaximum, computeRestart
 REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit, gammaSinghVives
 CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastState, FileNamePriceCycles
+CHARACTER(len = 200) :: Q1FileFolderName, Q2FileFolderName
 !
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
     indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
-    computeMixedStrategies(:)
+    computeMixedStrategies(:), typeQInitialization(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     maxValQ(:,:), NashPrices(:), CoopPrices(:), &
     PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), & 
@@ -88,7 +89,7 @@ CONTAINS
                                         ! they coincide with states when DepthState == 1
     lengthStrategies = numAgents*numStates
     lengthFormatActionPrint = FLOOR(LOG10(DBLE(numPrices)))+1
-    ALLOCATE(computeMixedStrategies(numAgents))
+    ALLOCATE(computeMixedStrategies(numAgents),typeQInitialization(numAgents))
     !
     ! Continue reading input settings
     !
@@ -103,6 +104,8 @@ CONTAINS
     IF (typePayoffInput .EQ. 1) numDemandParameters = 1+2                       ! gamma, extend
     IF (typePayoffInput .EQ. 2) numDemandParameters = 2*numAgents+4             ! a0, ai, ci, sigma, extend
     IF (typePayoffInput .EQ. 3) numDemandParameters = 2*numAgents+4             ! a0, ai, ci, sigma = 0, extend
+    READ(unitNumber,'(1X)')
+    READ(unitNumber,*) typeQInitialization
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) computeQLearningResults
     READ(unitNumber,'(1X)')
@@ -173,7 +176,7 @@ CONTAINS
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
-        computeMixedStrategies)
+        computeMixedStrategies,typeQInitialization)
     !
     ! Ending execution and returning control
     !
