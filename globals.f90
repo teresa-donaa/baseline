@@ -14,7 +14,7 @@ REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
 ! Variables
 !
 INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
-    itersInPerfMeasPeriod, printQ, codModel, PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
+    itersInPerfMeasPeriod, printQ, printP, codModel, PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
     typeExplorationMechanism, DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
     typePayoffInput, numAgents, numActions, numDemandParameters, &
     numExplorationParameters, computeQLearningResults, computeConvergenceResults, computePreShockCycles, &
@@ -201,7 +201,7 @@ CONTAINS
     !
     ! Beginning execution
     !
-    READ(unitNumber,*) codModel, printQ, alpha, MExpl, delta, &
+    READ(unitNumber,*) codModel, printQ, printP, alpha, MExpl, delta, &
         DemandParameters, NashPrices, CoopPrices
     IF (typeExplorationMechanism .EQ. 2) THEN
         !

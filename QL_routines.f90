@@ -136,9 +136,6 @@ CONTAINS
     ! Beginning execution
     !
     p = 1+INT(numPrices*u)
-!@SP Sanity check    
-!p(1,1) = 14
-!@SP Sanity check    
     stateNumber = computeStateNumber(p)
     actionNumber = computeActionNumber(p(1,:))
     !

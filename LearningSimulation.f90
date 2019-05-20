@@ -30,7 +30,6 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
     INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
@@ -45,6 +44,8 @@ CONTAINS
     CHARACTER(len = 25) :: QFileName
     CHARACTER(len = 5) :: iGamesChar
     CHARACTER(len = 5) :: codModelChar
+    REAL(8), ALLOCATABLE :: printPMat(:,:), printPMatQ(:,:)
+    CHARACTER(len = 200) :: PTrajectoryFileName
     !
     ! Beginning execution
     !
@@ -55,6 +56,17 @@ CONTAINS
     indexLastState = 0
     timeToConvergence = 0.d0
     WRITE(codModelChar,'(I0.5)') codModel
+    !
+    ! Allocate variables
+    !
+    IF (printP .GT. 0) THEN
+        !
+        ALLOCATE(printPMat(0:itersPerYear,2*numAgents))    ! [Iterations, (Prices and Profits)]
+        ALLOCATE(printPMatQ(0:itersPerYear,2*numAgents))  
+        printPMat = 0.d0
+        printPMatQ = 0.d0
+        !
+    END IF
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Loop over numGames
@@ -76,12 +88,12 @@ CONTAINS
     !
     !$omp parallel do &
     !$omp private(idum,iv,iy,idum2,Q,maxValQ, &
-    !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy, &
-    !$omp   convergedGame,pricesGridsPrime, &
+    !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy,convergedGame, &
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
-    !$omp   itersInPerfMeasPeriod,maxIters,printQ,codModelChar,uRandomSampling)
+    !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,codModelChar,uRandomSampling) &
+    !$omp reduction(+ : printPMat, printPMatQ)
     DO iGames = 1, numGames
         !
         PRINT*, 'Game = ', iGames, ' started'
@@ -113,8 +125,20 @@ CONTAINS
         !
         iIters = 0
         iItersInStrategy = 0
-        pricesGridsPrime = 0.d0
         convergedGame = 1
+        IF (printP .GT. 0) THEN
+            !
+            actionPrime = computeActionNumber(p(1,:))
+            DO iAgent = 1, numAgents
+                !
+                printPMat(iIters,iAgent) = printPMat(iIters,iAgent)+PricesGrids(p(1,iAgent),iAgent)
+                printPMat(iIters,numAgents+iAgent) = printPMat(iIters,numAgents+iAgent)+PI(actionPrime,iAgent)
+                printPMatQ(iIters,iAgent) = printPMatQ(iIters,iAgent)+PricesGrids(p(1,iAgent),iAgent)**2
+                printPMatQ(iIters,numAgents+iAgent) = printPMatQ(iIters,numAgents+iAgent)+PI(actionPrime,iAgent)**2
+                !
+            END DO
+            !
+        END IF
         !
         DO 
             !
@@ -132,15 +156,29 @@ CONTAINS
             !
             ! Defining the new state
             !
-            DO iAgent = 1, numAgents
-                !
-                pricesGridsPrime(iAgent) = PricesGrids(pPrime(iAgent),iAgent)
-                !
-            END DO
             IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
             p(1,:) = pPrime
             statePrime = computeStateNumber(p)
             actionPrime = computeActionNumber(pPrime)
+            !
+            ! Store PTrajectories
+            !
+            IF ((printP .GT. 0) .AND. (iIters .LE. itersPerYear*printP) .AND. (MOD(iIters,printP) .EQ. 0)) THEN
+                !
+                DO iAgent = 1, numAgents
+                    !
+                    printPMat(iIters/printP,iAgent) = printPMat(iIters/printP,iAgent)+ &    
+                        PricesGrids(pPrime(iAgent),iAgent)
+                    printPMat(iIters/printP,numAgents+iAgent) = printPMat(iIters/printP,numAgents+iAgent)+ &
+                        PI(actionPrime,iAgent)
+                    printPMatQ(iIters/printP,iAgent) = printPMatQ(iIters/printP,iAgent)+ &
+                        PricesGrids(p(1,iAgent),iAgent)**2
+                    printPMatQ(iIters/printP,numAgents+iAgent) = printPMatQ(iIters/printP,numAgents+iAgent)+ &
+                        PI(actionPrime,iAgent)**2
+                    !
+                END DO
+                !
+            END IF
             !
             ! Each agent collects his payoff and updates
             !
@@ -263,6 +301,37 @@ CONTAINS
     END DO
     !$omp end parallel do
     !
+    ! Print P trajectories, if required
+    !
+    IF (printP .GT. 0) THEN
+        !
+        ! Statistics
+        !
+        printPMat = printPMat/DBLE(numGames)
+        printPMatQ = printPMatQ/DBLE(numGames)
+        printPmatQ = SQRT(ABS(printPMatQ-printPMat**2))
+        !
+        ! File name
+        !
+        WRITE(codModelChar,'(I0.5)') iModel
+        PTrajectoryFileName = 'PTrajectories_' // codModelChar // '.txt'
+        OPEN(UNIT = 991,FILE = PTrajectoryFileName,STATUS = "REPLACE")
+        WRITE(991,990) (iAgent, iAgent = 1, numAgents), (iAgent, iAgent = 1, numAgents), & 
+                       (iAgent, iAgent = 1, numAgents), (iAgent, iAgent = 1, numAgents)
+990     FORMAT('      iter ', &
+            <numAgents>('      Price', I1, ' '), <numAgents>('    sePrice', I1, ' '), &
+            <numAgents>('     Profit', I1, ' '), <numAgents>('   seProfit', I1))
+        DO i = 0, itersPerYear
+            !
+            WRITE(991,991) i*printP, printPMat(i,:numAgents), printPMatQ(i,:numAgents), &
+                printPMat(i,numAgents+1:), printPMatQ(i,numAgents+1:)
+            !
+        END DO
+        991 FORMAT(I10, 1X, <4*numAgents>(F12.5,1X))
+        CLOSE(UNIT = 991)
+        !
+    END IF
+    !
     ! Print indexStrategies and indexLastState to file
     !
     OPEN(UNIT = 996,FILE = FileNameIndexStrategies,STATUS = "REPLACE")
@@ -282,6 +351,10 @@ CONTAINS
         !
     END DO
     CLOSE(UNIT = 999)
+    !
+    ! Deallocate variables
+    !
+    IF (printP .GT. 0) DEALLOCATE(printPMat)
     !
     ! Ending execution and returning control
     !

@@ -81,7 +81,7 @@ CONTAINS
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
-    !$omp   itersInPerfMeasPeriod,maxIters,printQ,codModelChar,uRandomSampling)
+    !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,codModelChar,uRandomSampling)
     DO iGames = 1, numGames
         !
         PRINT*, 'iGames = ', iGames
