@@ -22,7 +22,6 @@ INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     computeEquilibriumCheck, computePIGapToMaximum, computeQGapToMaximum, computeRestart
 REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit, gammaSinghVives
 CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastState, FileNamePriceCycles
-CHARACTER(len = 200) :: Q1FileFolderName, Q2FileFolderName
 !
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
@@ -34,6 +33,7 @@ REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     meanProfit(:), seProfit(:), meanProfitGain(:), seProfitGain(:), DemandParameters(:), &
     NashMarketShares(:), CoopMarketShares(:), PricesGrids(:,:), MExpl(:), ExplorationParameters(:)
 CHARACTER(len = :), ALLOCATABLE :: labelStates(:)
+CHARACTER(len = :), ALLOCATABLE :: QFileFolderName(:)
 !
 CONTAINS
 !
@@ -144,6 +144,7 @@ CONTAINS
         NashPrices(numAgents),CoopPrices(numAgents), &
         NashMarketShares(numAgents),CoopMarketShares(numAgents),PricesGrids(numPrices,numAgents))
     ALLOCATE(CHARACTER(len = 3+lengthStatesPrint) :: labelStates(numStates))
+    ALLOCATE(CHARACTER(len = 200) :: QFileFolderName(numAgents))
     !
     cStates = (/ (numPrices**i, i = LengthStates-1, 0, -1) /)
     cActions = (/ (numPrices**i, i = numAgents-1, 0, -1) /)
@@ -172,7 +173,7 @@ CONTAINS
     ! Beginning execution
     !
     DEALLOCATE(indexActions,timeToConvergence,converged,cStates,cActions,maxValQ, &
-        labelStates,indexStates,NashProfits,CoopProfits, &
+        labelStates,indexStates,NashProfits,CoopProfits,QFileFolderName, &
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &

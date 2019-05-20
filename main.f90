@@ -25,6 +25,7 @@ REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
 REAL(8) :: meanAvgProfit, seAvgProfit
 REAL(8) :: meanAvgProfitGain, seAvgProfitGain
 REAL(8) :: herfFreq, entropyFreq, giniFreq, freqSymmetricStrategies
+CHARACTER(len = 5) :: iChar
 CHARACTER(len = 50) :: ModelName, FileName, FileNameMSR
 REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
@@ -32,14 +33,20 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-Q1FileFolderName = "C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_05920/"
-Q2FileFolderName = "C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_00503/"
-!
-ModelName = "mixedQ_analysis_5920_503.txt"
-!
+ModelName = "figure_1_low_expl.txt"
 FileName = "mod_" // ModelName
+!
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)
+DO iAgent = 1, numAgents
+    !
+    WRITE(iChar,'(I0.5)') ABS(typeQInitialization(iAgent))
+    QFileFolderName(iAgent) = &
+        'C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_' // &
+            iChar // '/'
+    !
+END DO
+!
 IF (computeQLearningResults .EQ. 1) THEN
     !
     FileName = "res_" // ModelName

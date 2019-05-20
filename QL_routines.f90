@@ -29,13 +29,17 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    INTEGER :: iAgent, iPrice, iState, i 
+    INTEGER :: iAgent, iPrice, iState, i
     INTEGER :: status
     REAL(8) :: den
     CHARACTER(len = 225) :: QFileName
     CHARACTER(len = 5) :: iChar
     CHARACTER(len = 5) :: codModelChar
-    CHARACTER(len = 200) :: QFileFolderName
+    CHARACTER(len = 200) :: QFileFolderNameAgent
+!@SP
+    INTEGER :: irow, krow
+    REAL(8) :: Qtmp(numPrices), Rtmp(numPrices), A(numPrices,2), buf(2)
+!@SP
     !
     ! Beginning execution
     !
@@ -52,41 +56,54 @@ CONTAINS
                 !
             END DO
             !
-        ELSE IF (typeQInitialization(iAgent) .GT. 0) THEN
+        ELSE IF (typeQInitialization(iAgent) .NE. 0) THEN
             !
             ! Start from a randomly drawn Q matrix at convergence 
             ! on model "typeQInitialization(iAgent)"
             !
-            WRITE(codModelChar,'(I0.5)') typeQInitialization(iAgent)
+            WRITE(codModelChar,'(I0.5)') ABS(typeQInitialization(iAgent))
             i = 1+INT(DBLE(numGames)*uRandomSampling(iAgent))
             WRITE(iChar,'(I0.5)') i
             QFileName = 'Q_' // codModelChar // '_' // iChar // '.txt'
-            IF (iAgent .EQ. 1) THEN
-                !
-                QFileFolderName = Q1FileFolderName
-                !
-            ELSE IF (iAgent .EQ. 2) THEN
-                !
-                QFileFolderName = Q2FileFolderName
-                !
-            ELSE
-                !
-                PRINT*, 'Reading external Q matrix only implemented for 2 agents in QL_routines.f90'
-                PAUSE
-                !
-            END IF
-            QFileName = TRIM(QFileFolderName) // TRIM(QFileName)
+            QFileFolderNameAgent = QFileFolderName(iAgent)
+            QFileName = TRIM(QFileFolderNameAgent) // TRIM(QFileName)
             !
-            ! Write on Q matrices to file
+            ! Read Q matrices from file
             !
             OPEN(UNIT = iGames,FILE = QFileName,READONLY,RECL = 10000,IOSTAT = status)
             IF (iAgent .GT. 1) READ(iGames,100)
 100         FORMAT(<(iAgent-1)*numStates-1>(/))
-            DO iState = 1, numStates
+            !
+            IF (typeQInitialization(iAgent) .GT. 0) THEN
                 !
-                READ(iGames,*) Q(iState,:,iAgent)
+                DO iState = 1, numStates
+                    !
+                    READ(iGames,*) Q(iState,:,iAgent)
+                    !
+                END DO
                 !
-            END DO
+            ELSE IF (typeQInitialization(iAgent) .LT. 0) THEN
+                !
+                DO iState = 1, numStates
+                    !
+                    READ(iGames,*) Qtmp
+                    CALL RANDOM_NUMBER(Rtmp)
+                    A(:,1) = Rtmp
+                    A(:,2) = Qtmp
+                    DO irow = 1, numPrices
+                        !
+                        krow = MINLOC( A( irow:numPrices, 1 ), dim=1 ) + irow - 1
+                        buf = A(irow,:)
+                        A(irow,:) = A(krow,:)
+                        A(krow,:) = buf
+                        !
+                    END DO
+                    Q(iState,:,iAgent) = A(:,2)
+                    !
+                END DO
+                !
+            END IF
+            !
             CLOSE(UNIT = iGames)
             !
         END IF

@@ -70,7 +70,7 @@ CONTAINS
     iyIP = 0
     CALL generate_uIniPrice(uIniPrice,idumIP,ivIP,iyIP,idum2IP)  
     uRandomSampling = 0.d0
-    IF (ANY(typeQInitialization .GT. 0)) CALL generateURandomSampling(uRandomSampling,idumIP,ivIP,iyIP,idum2IP)  
+    IF (ANY(typeQInitialization .NE. 0)) CALL generateURandomSampling(uRandomSampling,idumIP,ivIP,iyIP,idum2IP)  
     !
     ! Starting loop over games
     !
