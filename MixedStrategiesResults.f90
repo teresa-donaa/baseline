@@ -19,10 +19,6 @@ CONTAINS
     !
     IMPLICIT NONE
     !
-    ! Declaring dummy variables
-    !
-
-    !
     ! Declaring local variable
     !
     INTEGER, PARAMETER :: numPeriodsPrint = 25
@@ -53,7 +49,15 @@ CONTAINS
     idum2RS = 123456789
     ivRS = 0
     iyRS = 0
-    CALL generateURandomSampling(uRandomSampling,idumRS,ivRS,iyRS,idum2RS)  
+    DO iGame = 1, numGAmes
+        !
+        DO iAgent = 1, numAgents
+            !
+            uRandomSampling(iGame,iAgent) = ran2(idumRS,ivRS,iyRS,idum2RS)
+            !
+        END DO
+        !
+    END DO
     !
     ! Loading strategies and price cycles
     !

@@ -202,6 +202,60 @@ CONTAINS
     ! Ending execution and returning control
     !
     END SUBROUTINE updateScalarAverage
+!
+! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+    SUBROUTINE MaxLocBreakTies ( n, x, idumQ, ivQ, iyQ, idum2Q, m, p )   
+    !
+    ! Given the (n x 1) real array X, finds:
+    ! - the maximum M
+    ! - the position of M in X
+    ! Differently from MAXLOC, ties are broken randomly
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    INTEGER, INTENT(IN) :: n
+    REAL(8), INTENT(IN) :: x(n)
+    INTEGER, INTENT(INOUT) :: idumQ, ivQ(32), iyQ, idum2Q
+    REAL(8), INTENT(OUT) :: m
+    INTEGER, INTENT(OUT) :: p
+    !
+    ! Declaring local variables
+    !
+    INTEGER :: h, i, tied(n)
+    REAL(8) :: u
+    !
+    ! Beginning execution
+    !
+    tied = 0
+    h = 0
+    DO i = 1, n
+        !
+        m = MAXVAL(x)
+        IF (ABS(x(i)-m) .LE. EPSILON(m)) THEN
+            !
+            h = h+1
+            tied(h) = i
+            !
+        END IF
+        !
+    END DO
+    IF (h .GT. 1) THEN
+        !
+        u = ran2(idumQ,ivQ,iyQ,idum2Q)
+        p = tied(1+INT(h*u))
+        !
+    ELSE
+        !
+        p = tied(1)
+        !
+    END IF
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE MaxLocBreakTies
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

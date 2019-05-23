@@ -11,16 +11,16 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE initQMatrices ( iGames, uRandomSampling, PI, delta, Q, maxValQ, maxLocQ )
+    SUBROUTINE initQMatrices ( iGames, idumQ, ivQ, iyQ, idum2Q, PI, delta, Q, maxValQ, maxLocQ )
     !
-    ! Randomly initializing Q matrices
+    ! Initializing Q matrices
     !
     IMPLICIT NONE
     !
     ! Declaring dummy variables
     !
     INTEGER, INTENT(IN) :: iGames
-    REAL(8), DIMENSION(numAgents), INTENT(IN) :: uRandomSampling
+    INTEGER, INTENT(INOUT) :: idumQ, ivQ(32), iyQ, idum2Q
     REAL(8), DIMENSION(numActions,numAgents), INTENT(IN) :: PI
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
     REAL(8), DIMENSION(numStates,numPrices,numAgents), INTENT(OUT) :: Q
@@ -29,23 +29,19 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    INTEGER :: iAgent, iPrice, iState, i
-    INTEGER :: status
-    REAL(8) :: den
+    INTEGER :: iAgent, iPrice, iState, i, h, status
+    INTEGER :: tied(numPrices)
+    REAL(8) :: den, u
     CHARACTER(len = 225) :: QFileName
     CHARACTER(len = 5) :: iChar
     CHARACTER(len = 5) :: codModelChar
     CHARACTER(len = 200) :: QFileFolderNameAgent
-!@SP
-    INTEGER :: irow, krow
-    REAL(8) :: Qtmp(numPrices), Rtmp(numPrices), A(numPrices,2), buf(2)
-!@SP
     !
     ! Beginning execution
     !
     DO iAgent = 1, numAgents
         !
-        IF (typeQInitialization(iAgent) .EQ. 0) THEN
+        IF (typeQInitialization(iAgent) .EQ. 'O') THEN
             !
             ! Randomizing over the opponents decisions
             !
@@ -56,13 +52,13 @@ CONTAINS
                 !
             END DO
             !
-        ELSE IF (typeQInitialization(iAgent) .NE. 0) THEN
+        ELSE IF (typeQInitialization(iAgent) .EQ. 'T') THEN
             !
             ! Start from a randomly drawn Q matrix at convergence 
-            ! on model "typeQInitialization(iAgent)"
+            ! on model "QMatrixInitializationT(iAgent)"
             !
-            WRITE(codModelChar,'(I0.5)') ABS(typeQInitialization(iAgent))
-            i = 1+INT(DBLE(numGames)*uRandomSampling(iAgent))
+            WRITE(codModelChar,'(I0.5)') QMatrixInitializationT(iAgent)
+            i = 1+INT(DBLE(numGames)*ran2(idumQ,ivQ,iyQ,idum2Q))
             WRITE(iChar,'(I0.5)') i
             QFileName = 'Q_' // codModelChar // '_' // iChar // '.txt'
             QFileFolderNameAgent = QFileFolderName(iAgent)
@@ -73,38 +69,35 @@ CONTAINS
             OPEN(UNIT = iGames,FILE = QFileName,READONLY,RECL = 10000,IOSTAT = status)
             IF (iAgent .GT. 1) READ(iGames,100)
 100         FORMAT(<(iAgent-1)*numStates-1>(/))
-            !
-            IF (typeQInitialization(iAgent) .GT. 0) THEN
+            DO iState = 1, numStates
                 !
-                DO iState = 1, numStates
-                    !
-                    READ(iGames,*) Q(iState,:,iAgent)
-                    !
-                END DO
+                READ(iGames,*) Q(iState,:,iAgent)
                 !
-            ELSE IF (typeQInitialization(iAgent) .LT. 0) THEN
-                !
-                DO iState = 1, numStates
-                    !
-                    READ(iGames,*) Qtmp
-                    CALL RANDOM_NUMBER(Rtmp)
-                    A(:,1) = Rtmp
-                    A(:,2) = Qtmp
-                    DO irow = 1, numPrices
-                        !
-                        krow = MINLOC( A( irow:numPrices, 1 ), dim=1 ) + irow - 1
-                        buf = A(irow,:)
-                        A(irow,:) = A(krow,:)
-                        A(krow,:) = buf
-                        !
-                    END DO
-                    Q(iState,:,iAgent) = A(:,2)
-                    !
-                END DO
-                !
-            END IF
-            !
+            END DO
             CLOSE(UNIT = iGames)
+            !
+        ELSE IF (typeQInitialization(iAgent) .EQ. 'R') THEN
+            !
+            ! Randomly initialized Q matrix using a uniform distribution between 
+            ! QMatrixInitializationR(2,iAgent) and QMatrixInitializationR(1,iAgent)
+            !
+            DO iState = 1, numStates
+                !
+                DO iPrice = 1, numPrices
+                    !
+                    Q(iState,iPrice,iAgent) = ran2(idumQ,ivQ,iyQ,idum2Q)
+                    !
+                END DO
+                !
+            END DO
+            Q(:,:,iAgent) = QMatrixInitializationR(1,iAgent)+ &
+                (QMatrixInitializationR(2,iAgent)-QMatrixInitializationR(1,iAgent))*Q(:,:,iAgent)
+            !
+        ELSE IF (typeQInitialization(iAgent) .EQ. 'U') THEN
+            !
+            ! Constant Q matrix with all elements set to QMatrixInitializationU(iAgent)
+            !
+            Q(:,:,iAgent) = QMatrixInitializationU(iAgent)
             !
         END IF
         !
@@ -112,8 +105,18 @@ CONTAINS
     !
     ! Find initial optimal strategy
     !
-    maxValQ = MAXVAL(Q,DIM = 2)
-    maxLocQ = MAXLOC(Q,DIM = 2)
+    DO iAgent = 1, numAgents
+        !
+        DO iState = 1, numStates
+            !
+            CALL MaxLocBreakTies(numPrices,Q(iState,:,iAgent),idumQ,ivQ,iyQ,idum2Q, &
+                maxValQ(iState,iAgent),maxLocQ(iState,iAgent))
+            !
+        END DO
+        !
+    END DO
+!@SP    maxValQ = MAXVAL(Q,DIM = 2)
+!@SP    maxLocQ = MAXLOC(Q,DIM = 2)
     !
     ! Ending execution and returning control
     !
@@ -218,42 +221,6 @@ CONTAINS
     ! Ending execution and returning control
     !
     END SUBROUTINE generateUExploration
-!
-! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!
-    SUBROUTINE generateURandomSampling ( uRandomSampling, idum, iv, iy, idum2 )   
-    !
-    IMPLICIT NONE
-    !
-    ! Declaring dummy variables
-    !
-    REAL(8), INTENT(OUT) :: uRandomSampling(numGames,numAgents)
-    INTEGER, INTENT(INOUT) :: idum
-    INTEGER, INTENT(INOUT) :: iv(32)
-    INTEGER, INTENT(INOUT) :: iy
-    INTEGER, INTENT(INOUT) :: idum2
-    !
-    ! Declaring local variables
-    !
-    INTEGER :: iGame, iAgent
-    !
-    ! Beginning execution
-    !
-    ! Generate U(0,1) draws for price initialization
-    !
-    DO iGame = 1, numGames
-        !
-        DO iAgent = 1, numAgents
-            !
-            uRandomSampling(iGame,iAgent) = ran2(idum,iv,iy,idum2)
-            !
-        END DO
-        !
-    END DO
-    !
-    ! Ending execution and returning control
-    !
-    END SUBROUTINE generateURandomSampling
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

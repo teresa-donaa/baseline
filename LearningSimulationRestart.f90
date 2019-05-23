@@ -32,11 +32,11 @@ CONTAINS
     ! Declaring local variable
     !
     REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
-    INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2
+    INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2, idumQ, ivQ(32), iyQ, idum2Q
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
-    REAL(8) :: uRandomSampling(numGames,numAgents), u(2), eps(numAgents)
-    REAL(8) :: newq, oldq
+    REAL(8) :: u(2), eps(numAgents)
+    REAL(8) :: newq, oldq, profitgain
     INTEGER :: iIters, i, j, iGames, iItersInStrategy, convergedGame
     INTEGER :: state, statePrime, actionPrime
     INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime
@@ -69,19 +69,17 @@ CONTAINS
     ivIP = 0
     iyIP = 0
     CALL generate_uIniPrice(uIniPrice,idumIP,ivIP,iyIP,idum2IP)  
-    uRandomSampling = 0.d0
-    IF (ANY(typeQInitialization .NE. 0)) CALL generateURandomSampling(uRandomSampling,idumIP,ivIP,iyIP,idum2IP)  
     !
     ! Starting loop over games
     !
     !$omp parallel do &
-    !$omp private(idum,iv,iy,idum2,Q,maxValQ, &
+    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy, &
     !$omp   convergedGame,pricesGridsPrime, &
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
-    !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,codModelChar,uRandomSampling)
+    !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,profitgain,codModelChar)
     DO iGames = 1, numGames
         !
         PRINT*, 'iGames = ', iGames
@@ -100,7 +98,7 @@ CONTAINS
         ! Initializing Q matrices
         !
         !$omp critical
-        CALL initQMatrices(iGames,uRandomSampling(iGames,:),PI,delta,Q,maxValQ,strategyPrime)
+        CALL initQMatrices(iGames,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
         !$omp end critical
         strategy = strategyPrime
         !
@@ -151,8 +149,10 @@ CONTAINS
                 END IF
                 IF ((newq .LT. maxValQ(state,iAgent)) .AND. (strategyPrime(state,iAgent) .EQ. pPrime(iAgent))) THEN
                     !
-                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
-                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
+                    CALL MaxLocBreakTies(numPrices,Q(state,:,iAgent),idumQ,ivQ,iyQ,idum2Q, &
+                        maxValQ(state,iAgent),strategyPrime(state,iAgent))
+!@SP                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
+!@SP                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
                     !
                 END IF
                 !
@@ -221,7 +221,9 @@ CONTAINS
         !
         ! Initializing Q matrices
         !
-        CALL initQMatricesRestart(PI,delta,Q,maxValQ,strategyPrime)
+        !$omp critical
+        CALL initQMatricesRestart(iGames,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
+        !$omp end critical
         strategy = strategyPrime
         !
         ! Randomly initializing prices and state
@@ -278,8 +280,10 @@ CONTAINS
                 END IF
                 IF ((newq .LT. maxValQ(state,iAgent)) .AND. (strategyPrime(state,iAgent) .EQ. pPrime(iAgent))) THEN
                     !
-                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
-                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
+                    CALL MaxLocBreakTies(numPrices,Q(state,:,iAgent),idumQ,ivQ,iyQ,idum2Q, &
+                        maxValQ(state,iAgent),strategyPrime(state,iAgent))
+!@SP                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
+!@SP                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
                     !
                 END IF
                 !
@@ -474,7 +478,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE initQMatricesRestart ( PI, delta, Q, maxValQ, maxLocQ )
+    SUBROUTINE initQMatricesRestart ( iGames, idumQ, ivQ, iyQ, idum2Q, PI, delta, Q, maxValQ, maxLocQ )
     !
     ! Initializing Q matrices
     ! - at the Q matrix at convergence for the first numAgents-1 agents
@@ -484,35 +488,106 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
+    INTEGER, INTENT(IN) :: iGames
+    INTEGER, INTENT(INOUT) :: idumQ, ivQ(32), iyQ, idum2Q
     REAL(8), DIMENSION(numActions,numAgents), INTENT(IN) :: PI
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
-    REAL(8), DIMENSION(numStates,numPrices,numAgents), INTENT(INOUT) :: Q
+    REAL(8), DIMENSION(numStates,numPrices,numAgents), INTENT(OUT) :: Q
     INTEGER, DIMENSION(numStates,numAgents), INTENT(OUT) :: maxLocQ
     REAL(8), DIMENSION(numStates,numAgents), INTENT(OUT) :: maxValQ
     !
     ! Declaring local variables
     !
-    INTEGER :: iAgent, iPrice, p(DepthState,numAgents), iAction, iNash, iDevNash
-    INTEGER :: devPrices(numAgents)
-    REAL(8) :: den
+    INTEGER :: iAgent, iPrice, iState, i, h, status
+    INTEGER :: tied(numPrices)
+    REAL(8) :: den, u
+    CHARACTER(len = 225) :: QFileName
+    CHARACTER(len = 5) :: iChar
+    CHARACTER(len = 5) :: codModelChar
+    CHARACTER(len = 200) :: QFileFolderNameAgent
     !
     ! Beginning execution
     !
-    ! Randomizing over the opponents decisions, only for the last agent
+    ! Initializing the Q matrix, only for the last agents
     !
     DO iAgent = numAgents-computeRestart+1, numAgents
         !
-        DO iPrice = 1, numPrices
+        IF (typeQInitialization(iAgent) .EQ. 'O') THEN
             !
-            den = COUNT(indexActions(:,iAgent) .EQ. iPrice)*(1.d0-delta(iAgent))
-            Q(:,iPrice,iAgent) = SUM(PI(:,iAgent),MASK = indexActions(:,iAgent) .EQ. iPrice)/den
+            ! Randomizing over the opponents decisions
+            !
+            DO iPrice = 1, numPrices
+                !
+                den = COUNT(indexActions(:,iAgent) .EQ. iPrice)*(1.d0-delta(iAgent))
+                Q(:,iPrice,iAgent) = SUM(PI(:,iAgent),MASK = indexActions(:,iAgent) .EQ. iPrice)/den
+                !
+            END DO
+            !
+        ELSE IF (typeQInitialization(iAgent) .EQ. 'T') THEN
+            !
+            ! Start from a randomly drawn Q matrix at convergence 
+            ! on model "QMatrixInitializationT(iAgent)"
+            !
+            WRITE(codModelChar,'(I0.5)') QMatrixInitializationT(iAgent)
+            i = 1+INT(DBLE(numGames)*ran2(idumQ,ivQ,iyQ,idum2Q))
+            WRITE(iChar,'(I0.5)') i
+            QFileName = 'Q_' // codModelChar // '_' // iChar // '.txt'
+            QFileFolderNameAgent = QFileFolderName(iAgent)
+            QFileName = TRIM(QFileFolderNameAgent) // TRIM(QFileName)
+            !
+            ! Read Q matrices from file
+            !
+            OPEN(UNIT = iGames,FILE = QFileName,READONLY,RECL = 10000,IOSTAT = status)
+            IF (iAgent .GT. 1) READ(iGames,100)
+100         FORMAT(<(iAgent-1)*numStates-1>(/))
+            DO iState = 1, numStates
+                !
+                READ(iGames,*) Q(iState,:,iAgent)
+                !
+            END DO
+            CLOSE(UNIT = iGames)
+            !
+        ELSE IF (typeQInitialization(iAgent) .EQ. 'R') THEN
+            !
+            ! Randomly initialized Q matrix using a uniform distribution between 
+            ! QMatrixInitializationR(2,iAgent) and QMatrixInitializationR(1,iAgent)
+            !
+            DO iState = 1, numStates
+                !
+                DO iPrice = 1, numPrices
+                    !
+                    Q(iState,iPrice,iAgent) = ran2(idumQ,ivQ,iyQ,idum2Q)
+                    !
+                END DO
+                !
+            END DO
+            Q(:,:,iAgent) = QMatrixInitializationR(1,iAgent)+ &
+                (QMatrixInitializationR(2,iAgent)-QMatrixInitializationR(1,iAgent))*Q(:,:,iAgent)
+            !
+        ELSE IF (typeQInitialization(iAgent) .EQ. 'U') THEN
+            !
+            ! Constant Q matrix with all elements set to QMatrixInitializationU(iAgent)
+            !
+            Q(:,:,iAgent) = QMatrixInitializationU(iAgent)
+            !
+        END IF
+        !
+    END DO
+    !
+    ! Find initial optimal strategy
+    !
+    DO iAgent = 1, numAgents
+        !
+        DO iState = 1, numStates
+            !
+            CALL MaxLocBreakTies(numPrices,Q(iState,:,iAgent),idumQ,ivQ,iyQ,idum2Q, &
+                maxValQ(iState,iAgent),maxLocQ(iState,iAgent))
             !
         END DO
         !
     END DO
-    !
-    maxValQ = MAXVAL(Q,DIM = 2)
-    maxLocQ = MAXLOC(Q,DIM = 2)
+!@SP    maxValQ = MAXVAL(Q,DIM = 2)
+!@SP    maxLocQ = MAXLOC(Q,DIM = 2)
     !
     ! Ending execution and returning control
     !

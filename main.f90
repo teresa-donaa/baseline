@@ -40,10 +40,14 @@ OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)
 DO iAgent = 1, numAgents
     !
-    WRITE(iChar,'(I0.5)') ABS(typeQInitialization(iAgent))
-    QFileFolderName(iAgent) = &
-        'C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_' // &
-            iChar // '/'
+    IF (typeQInitialization(iAgent) .EQ. 'T') THEN
+        !
+        WRITE(iChar,'(I0.5)') QMatrixInitializationT(iAgent)
+        QFileFolderName(iAgent) = &
+            'C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_' // &
+                iChar // '/'
+        !
+    END IF
     !
 END DO
 !

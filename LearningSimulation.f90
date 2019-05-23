@@ -30,11 +30,11 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2
+    INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2, idumQ, ivQ(32), iyQ, idum2Q
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
-    REAL(8) :: uRandomSampling(numGames,numAgents), u(2), eps(numAgents)
-    REAL(8) :: newq, oldq
+    REAL(8) :: u(2), eps(numAgents)
+    REAL(8) :: newq, oldq, profitgain
     INTEGER :: iIters, i, j, h, iGames, iItersInStrategy, convergedGame
     INTEGER :: state, statePrime, actionPrime
     INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime
@@ -81,18 +81,16 @@ CONTAINS
     ivIP = 0
     iyIP = 0
     CALL generate_uIniPrice(uIniPrice,idumIP,ivIP,iyIP,idum2IP)  
-    uRandomSampling = 0.d0
-    IF (ANY(typeQInitialization .NE. 0)) CALL generateURandomSampling(uRandomSampling,idumIP,ivIP,iyIP,idum2IP)  
     !
     ! Starting loop over games
     !
     !$omp parallel do &
-    !$omp private(idum,iv,iy,idum2,Q,maxValQ, &
+    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy,convergedGame, &
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
-    !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,codModelChar,uRandomSampling) &
+    !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,profitgain,codModelChar) &
     !$omp reduction(+ : printPMat, printPMatQ)
     DO iGames = 1, numGames
         !
@@ -102,17 +100,22 @@ CONTAINS
         ! Learning phase
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         !
-        ! Initializing random number generator
+        ! Initializing random number generators
         !
         idum = -iGames
         idum2 = 123456789
         iv = 0
         iy = 0
         !
+        idumQ = -iGames
+        idum2Q = 123456789
+        ivQ = 0
+        iyQ = 0
+        !
         ! Initializing Q matrices
         !
         !$omp critical
-        CALL initQMatrices(iGames,uRandomSampling(iGames,:),PI,delta,Q,maxValQ,strategyPrime)
+        CALL initQMatrices(iGames,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
         !$omp end critical
         strategy = strategyPrime
         !
@@ -132,9 +135,10 @@ CONTAINS
             DO iAgent = 1, numAgents
                 !
                 printPMat(iIters,iAgent) = printPMat(iIters,iAgent)+PricesGrids(p(1,iAgent),iAgent)
-                printPMat(iIters,numAgents+iAgent) = printPMat(iIters,numAgents+iAgent)+PI(actionPrime,iAgent)
+                profitgain = (PI(actionPrime,iAgent)-NashProfits(iAgent))/(CoopProfits(iAgent)-NashProfits(iAgent))
+                printPMat(iIters,numAgents+iAgent) = printPMat(iIters,numAgents+iAgent)+profitgain
                 printPMatQ(iIters,iAgent) = printPMatQ(iIters,iAgent)+PricesGrids(p(1,iAgent),iAgent)**2
-                printPMatQ(iIters,numAgents+iAgent) = printPMatQ(iIters,numAgents+iAgent)+PI(actionPrime,iAgent)**2
+                printPMatQ(iIters,numAgents+iAgent) = printPMatQ(iIters,numAgents+iAgent)+profitgain**2
                 !
             END DO
             !
@@ -169,12 +173,11 @@ CONTAINS
                     !
                     printPMat(iIters/printP,iAgent) = printPMat(iIters/printP,iAgent)+ &    
                         PricesGrids(pPrime(iAgent),iAgent)
-                    printPMat(iIters/printP,numAgents+iAgent) = printPMat(iIters/printP,numAgents+iAgent)+ &
-                        PI(actionPrime,iAgent)
+                    profitgain = (PI(actionPrime,iAgent)-NashProfits(iAgent))/(CoopProfits(iAgent)-NashProfits(iAgent))
+                    printPMat(iIters/printP,numAgents+iAgent) = printPMat(iIters/printP,numAgents+iAgent)+profitgain
                     printPMatQ(iIters/printP,iAgent) = printPMatQ(iIters/printP,iAgent)+ &
                         PricesGrids(p(1,iAgent),iAgent)**2
-                    printPMatQ(iIters/printP,numAgents+iAgent) = printPMatQ(iIters/printP,numAgents+iAgent)+ &
-                        PI(actionPrime,iAgent)**2
+                    printPMatQ(iIters/printP,numAgents+iAgent) = printPMatQ(iIters/printP,numAgents+iAgent)+profitgain**2
                     !
                 END DO
                 !
@@ -197,8 +200,10 @@ CONTAINS
                 END IF
                 IF ((newq .LT. maxValQ(state,iAgent)) .AND. (strategyPrime(state,iAgent) .EQ. pPrime(iAgent))) THEN
                     !
-                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
-                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
+                    CALL MaxLocBreakTies(numPrices,Q(state,:,iAgent),idumQ,ivQ,iyQ,idum2Q, &
+                        maxValQ(state,iAgent),strategyPrime(state,iAgent))
+!@SP                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
+!@SP                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
                     !
                 END IF
                 !

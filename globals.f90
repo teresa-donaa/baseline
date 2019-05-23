@@ -26,14 +26,17 @@ CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastSt
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
     indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
-    computeMixedStrategies(:), typeQInitialization(:)
+    computeMixedStrategies(:), QMatrixInitializationT(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     maxValQ(:,:), NashPrices(:), CoopPrices(:), &
     PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), & 
     meanProfit(:), seProfit(:), meanProfitGain(:), seProfitGain(:), DemandParameters(:), &
-    NashMarketShares(:), CoopMarketShares(:), PricesGrids(:,:), MExpl(:), ExplorationParameters(:)
+    NashMarketShares(:), CoopMarketShares(:), PricesGrids(:,:), MExpl(:), ExplorationParameters(:), &
+    QMatrixInitializationR(:,:), QMatrixInitializationU(:)
 CHARACTER(len = :), ALLOCATABLE :: labelStates(:)
 CHARACTER(len = :), ALLOCATABLE :: QFileFolderName(:)
+CHARACTER(len = 1), ALLOCATABLE :: typeQInitialization(:)
+
 !
 CONTAINS
 !
@@ -89,24 +92,42 @@ CONTAINS
                                         ! they coincide with states when DepthState == 1
     lengthStrategies = numAgents*numStates
     lengthFormatActionPrint = FLOOR(LOG10(DBLE(numPrices)))+1
-    ALLOCATE(computeMixedStrategies(numAgents),typeQInitialization(numAgents))
-    !
-    ! Continue reading input settings
-    !
+    ALLOCATE(computeMixedStrategies(numAgents))
     READ(unitNumber,'(1X)')
+    !
+    ! Read type of exploration mechanism
+    !
     READ(unitNumber,*) typeExplorationMechanism
     IF (typeExplorationMechanism .EQ. 1) numExplorationParameters = 1*numAgents           ! Constant 
     IF (typeExplorationMechanism .EQ. 2) numExplorationParameters = 1*numAgents           ! Exponentially decreasing (beta)
     IF (typeExplorationMechanism .EQ. 3) numExplorationParameters = 1*numAgents           ! Exponentially decreasing (m)
     READ(unitNumber,'(1X)')
+    !
+    ! Read type of payoff input
+    !
     READ(unitNumber,*) typePayoffInput
     IF (typePayoffInput .EQ. 0) numDemandParameters = numActions                ! Pi1 matrix
     IF (typePayoffInput .EQ. 1) numDemandParameters = 1+2                       ! gamma, extend
     IF (typePayoffInput .EQ. 2) numDemandParameters = 2*numAgents+4             ! a0, ai, ci, sigma, extend
     IF (typePayoffInput .EQ. 3) numDemandParameters = 2*numAgents+4             ! a0, ai, ci, sigma = 0, extend
     READ(unitNumber,'(1X)')
+    !
+    ! Read type of Q matrix initialization
+    !
+    ALLOCATE(typeQInitialization(numAgents),QMatrixInitializationR(numAgents,2), &
+        QMatrixInitializationU(numAgents),QMatrixInitializationT(numAgents))
     READ(unitNumber,*) typeQInitialization
+    DO iAgent = 1, numAgents
+        !
+        IF (typeQInitialization(iAgent) .EQ. 'R') READ(unitNumber,*) QMatrixInitializationR(iAgent,:)
+        IF (typeQInitialization(iAgent) .EQ. 'U') READ(unitNumber,*) QMatrixInitializationU(iAgent)
+        IF (typeQInitialization(iAgent) .EQ. 'T') READ(unitNumber,*) QMatrixInitializationT(iAgent)
+        !
+    END DO
     READ(unitNumber,'(1X)')
+    !
+    ! Continue reading input settings
+    !
     READ(unitNumber,*) computeQLearningResults
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) computeConvergenceResults
@@ -177,7 +198,8 @@ CONTAINS
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
-        computeMixedStrategies,typeQInitialization)
+        computeMixedStrategies,typeQInitialization,QMatrixInitializationR,QMatrixInitializationU, &
+        QMatrixInitializationT)
     !
     ! Ending execution and returning control
     !
