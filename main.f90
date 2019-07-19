@@ -8,6 +8,7 @@ USE PreShockCycles
 USE ImpulseResponseToBR
 USE ImpulseResponseToNash
 USE ImpulseResponseToAll
+USE DetailedImpulseResponseToAll
 USE EquilibriumCheck
 USE QGapToMaximum
 USE PIGapToMaximum
@@ -33,7 +34,7 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "figure_1_low_expl.txt"
+ModelName = "detailed_IR_analysis.txt"
 FileName = "mod_" // ModelName
 !
 OPEN(UNIT = 10001,FILE = FileName)
@@ -192,6 +193,10 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         ! Impulse Response analysis to one-period deviation to all prices
         !
         IF (computeImpulseResponseToAll .EQ. 1) CALL computeIRToAllAnalysis(iModel)
+        !
+        ! Detailed Impulse Response analysis to one-period deviation to all prices
+        !
+        IF (computeDetailedImpulseResponseToAll .EQ. 1) CALL computeDetailedIRToAll(iModel)
         !
         ! Equilibrium Check
         !

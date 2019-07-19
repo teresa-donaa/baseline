@@ -19,6 +19,7 @@ INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     typePayoffInput, numAgents, numActions, numDemandParameters, &
     numExplorationParameters, computeQLearningResults, computeConvergenceResults, computePreShockCycles, &
     computeImpulseResponseToBR, computeImpulseResponseToNash, computeImpulseResponseToAll, &
+    computeDetailedImpulseResponseToAll, &
     computeEquilibriumCheck, computePIGapToMaximum, computeQGapToMaximum, computeRestart
 REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit, gammaSinghVives
 CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastState, FileNamePriceCycles
@@ -139,6 +140,8 @@ CONTAINS
     READ(unitNumber,*) computeImpulseResponseToNash
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) computeImpulseResponseToAll
+    READ(unitNumber,'(1X)')
+    READ(unitNumber,*) computeDetailedImpulseResponseToAll
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) computeEquilibriumCheck
     READ(unitNumber,'(1X)')
