@@ -211,8 +211,28 @@ CONTAINS
     !
     ! 3. Compute price grid
     !
-    PricesGrids(1,:) = NashPrices-extend(1)*(CoopPrices-NashPrices)
-    PricesGrids(numPrices,:) = CoopPrices+extend(2)*(CoopPrices-NashPrices)
+    ! Upper and lower bounds
+    !
+    IF (ALL(extend .GT. 0.d0)) THEN
+        !
+        ! Lower bound = pNash - extend(1)*(pCoop - pNash)
+        ! Upper bound = pCoop + extend(2)*(pCoop - pNash)
+        !
+        PricesGrids(1,:) = NashPrices-extend(1)*(CoopPrices-NashPrices)
+        PricesGrids(numPrices,:) = CoopPrices+extend(2)*(CoopPrices-NashPrices)
+        !
+    ELSE IF ((extend(1) .LT. 0.d0) .AND. (extend(2) .GE. -EPSILON(extend(2)))) THEN
+        !
+        ! Lower bound = cost + extend(1)*cost
+        ! Upper bound = pCoop + extend(2)*pCoop
+        !
+        PricesGrids(1,:) = c+extend(1)*c
+        PricesGrids(numPrices,:) = CoopPrices+extend(2)*CoopPrices
+        !
+    END IF
+    !
+    ! Grids
+    !
     stepPrices = (PricesGrids(numPrices,:)-PricesGrids(1,:))/(numPrices-1)
     DO i = 2, numPrices-1
         !
@@ -354,7 +374,7 @@ CONTAINS
                 !
                 d(2) = 1.d0
                 !
-            ELSE IF (ABS(prices(2)-prices(1)) .LE. EPSILON(prices(2))) THEN
+            ELSE IF (ABS(prices(1)-prices(2)) .LE. EPSILON(prices(1))) THEN
                 !
                 d(2) = 0.5d0
                 !

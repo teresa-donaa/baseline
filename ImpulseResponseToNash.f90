@@ -32,7 +32,7 @@ CONTAINS
         p(DepthState,numAgents), pPrime(numAgents), numPeriodsShockTmp(numShockPeriodsPrint,numAgents), &
         iStatePre, iPeriod, iAgent, jAgent, &
         iGame, optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
-        indexShockState(LengthStates), numPeriods, iThres, i, j
+        indexShockState(LengthStates), iThres, i, j
     INTEGER :: FreqPeriodLengthPre(numThresPeriodsLength)
     INTEGER, DIMENSION(numAgents,numThresPeriodsLength) :: FreqPeriodLengthShock, FreqPeriodLengthPost
     INTEGER :: FreqPunishmentStrategy(numAgents,0:numThresPeriodsLength)
@@ -72,8 +72,6 @@ CONTAINS
     ThresPeriodsLength = (/ ( i, i = 1, numThresPeriodsLength ) /)
     ThresPeriodsLength0 = (/ 0, ThresPeriodsLength /)
     !
-    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
-                                    ! many of the variables above!!!
     FreqPeriodLengthPre = 0
     FreqPeriodLengthShock = 0
     FreqPeriodLengthPost = 0

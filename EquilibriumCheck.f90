@@ -25,15 +25,14 @@ CONTAINS
     !
     INTEGER, PARAMETER :: numThresPathCycleLength = 10
     INTEGER, PARAMETER :: ThresPathCycleLength(numThresPathCycleLength) = (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 /)
-    INTEGER :: numPeriods, iGame, iAgent, iState, iPrice, iPeriod, iThres, i, j, PreCycleLength, CycleLength, &
-        OptimalStrategy(numStates,numAgents), p(DepthState,numAgents), pPrime(numAgents), VisitedStates(numStates+1), &
+    INTEGER :: iGame, iAgent, iState, iPrice, iPeriod, iThres, i, j, PreCycleLength, CycleLength, &
+        OptimalStrategy(numStates,numAgents), pPrime(numAgents), VisitedStates(numStates+1), &
         OptimalPrice, PathCycleStates(numStates), lastObservedStateNumber, PathCycleLength(numGames), &
         numStatesBRAll(numAgents,numGames), numStatesBRPathCycle(numAgents,numGames), &
         numStatesEqAll(numGames), numStatesEqPathCycle(numGames), &
         IsBestReply(numStates,numAgents), &
         numImprovedPrices, ImprovedPrices(numStates), numPathCycleLength(numThresPathCycleLength)
-    REAL(8) :: DiscountFactors(0:numStates,numAgents), VisitedProfits(numStates+1), PreCycleProfit, CycleProfit, &
-        StateValueFunction(numStates,numPrices), MaxStateValueFunction, &
+    REAL(8) :: StateValueFunction(numStates,numPrices), MaxStateValueFunction, &
         freqStatesBRAll(numAgents,numGames), freqStatesBRPathCycle(numAgents,numGames), &
         freqStatesEqAll(numGames), freqStateseqPathCycle(numGames), &
         avgFreqStatesBRAll(0:numAgents,numThresPathCycleLength), avgFreqStatesBRPathCycle(0:numAgents,numThresPathCycleLength), &
@@ -47,10 +46,6 @@ CONTAINS
     ! Initializing variables
     !
     !$ CALL OMP_SET_NUM_THREADS(numCores)
-    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
-                                    ! many of the variables above!!!
-    DiscountFactors = TRANSPOSE(RESHAPE((/ (delta**iPeriod, iPeriod = 0, numPeriods-1) /),(/ numAgents,numPeriods /)))
-    !
     numStatesBRAll = 0
     numStatesBRPathCycle = 0
     numStatesEqAll = 0
@@ -82,10 +77,9 @@ CONTAINS
     !
     !$omp parallel do &
     !$omp private(OptimalStrategy,lastObservedStateNumber,IsBestReply,iAgent,StateValueFunction,PathCycleStates, &
-    !$omp   iState,p,pPrime,OptimalPrice,iPrice,VisitedStates,VisitedProfits,iPeriod, &
-    !$omp   PreCycleLength,CycleLength,PreCycleProfit,CycleProfit,OptimalStrategyVec,LastStateVec,i, &
-    !$omp   MaxStateValueFunction,numImprovedPrices,ImprovedPrices) &
-    !$omp firstprivate(numGames,PI)
+    !$omp   iState,pPrime,OptimalPrice,iPrice,VisitedStates,iPeriod, &
+    !$omp   PreCycleLength,CycleLength,OptimalStrategyVec,LastStateVec,i, &
+    !$omp   MaxStateValueFunction,numImprovedPrices,ImprovedPrices)
     DO iGame = 1, numGames                  ! Start of loop aver games
         !
         PRINT*, 'iGame = ', iGame
@@ -110,7 +104,6 @@ CONTAINS
             !
             DO iState = 1, numStates        ! Start of loop over states
                 !
-                p = RESHAPE(convertNumberBase(iState-1,numPrices,numAgents*DepthState),(/ DepthState,numAgents /))
                 pPrime = OptimalStrategy(iState,:)
                 OptimalPrice = pPrime(iAgent)
                 !
@@ -118,36 +111,12 @@ CONTAINS
                     !
                     ! First period deviation from optimal strategy
                     !
-                    pPrime(iAgent) = iPrice
+                    ! 1. Compute state value function for the optimal strategy in (iState,iPrice)
                     !
-                    ! 1. Compute pre-cycle and cycle data
+                    CALL computeQcell(OptimalStrategy,iState,iPrice,iAgent,delta, &
+                        StateValueFunction(iState,iPrice),VisitedStates,PreCycleLength,CycleLength,iPeriod)
                     !
-                    VisitedStates = 0
-                    VisitedProfits = 0.d0
-                    DO iPeriod = 1, numPeriods
-                        !
-                        IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
-                        p(1,:) = pPrime
-                        VisitedStates(iPeriod) = computeStateNumber(p)
-                        VisitedProfits(iPeriod) = PI(computeActionNumber(pPrime),iAgent)
-                        !
-                        ! Check if the state has already been visited
-                        !
-                        IF ((iPeriod .GE. 2) .AND. (ANY(VisitedStates(:iPeriod-1) .EQ. VisitedStates(iPeriod)))) THEN
-                            !
-                            PreCycleLength = MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
-                            CycleLength = iPeriod-PreCycleLength
-                            EXIT
-                            !
-                        END IF
-                        !
-                        ! After period 1, every agent follows the optimal strategy
-                        !
-                        pPrime = OptimalStrategy(VisitedStates(iPeriod),:)
-                        !
-                    END DO
-                    !
-                    ! 2. Compute state value function for the optimal strategy
+                    ! 2. Check if state is on path
                     !
                     IF ((iPrice .EQ. OptimalPrice) .AND. (iState .EQ. lastObservedStateNumber)) THEN
                         !
@@ -155,10 +124,6 @@ CONTAINS
                         PathCycleLength(iGame) = CycleLength
                         !
                     END IF
-                    PreCycleProfit = SUM(DiscountFactors(0:PreCycleLength-1,iAgent)*VisitedProfits(1:PreCycleLength))
-                    CycleProfit = SUM(DiscountFactors(0:CycleLength-1,iAgent)*VisitedProfits(PreCycleLength+1:iPeriod))
-                    StateValueFunction(iState,iPrice) = &
-                        PreCycleProfit+delta(iAgent)**PreCycleLength*CycleProfit/(1.d0-delta(iAgent)**CycleLength)
                     !
                 END DO                      ! End of loop over prices
                 !
@@ -392,6 +357,76 @@ CONTAINS
     ! Ending execution and returning control
     !
     END SUBROUTINE computeEqCheck
+!
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    SUBROUTINE computeQCell ( OptimalStrategy, iState, iPrice, iAgent, delta, &
+        QCell, VisitedStates, PreCycleLength, CycleLength, iPeriod )
+    !
+    ! Computes a cell of the 'true' (i.e., theoretical) Q matrix
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    INTEGER, INTENT(IN) :: OptimalStrategy(numStates,numAgents)
+    INTEGER, INTENT(IN) :: iState
+    INTEGER, INTENT(IN) :: iPrice
+    INTEGER, INTENT(IN) :: iAgent
+    REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
+    REAL(8), INTENT(OUT) :: QCell
+    INTEGER, DIMENSION(numStates+1), INTENT(OUT) :: VisitedStates
+    INTEGER, INTENT(OUT) :: PreCycleLength, CycleLength, iPeriod
+    !
+    ! Declaring local variable
+    !
+    INTEGER :: p(DepthState,numAgents), pPrime(numAgents)
+    REAL(8) :: VisitedProfits(numStates+1), PreCycleProfit, CycleProfit
+    !
+    ! Beginning execution
+    !
+    ! Initial p and pPrime, including deviation to iPrice
+    !
+    p = RESHAPE(convertNumberBase(iState-1,numPrices,numAgents*DepthState),(/ DepthState,numAgents /))
+    pPrime = OptimalStrategy(iState,:)
+    pPrime(iAgent) = iPrice
+    !
+    ! Loop over deviation period
+    !
+    VisitedStates = 0
+    VisitedProfits = 0.d0
+    DO iPeriod = 1, numPeriods
+        !
+        IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
+        p(1,:) = pPrime
+        VisitedStates(iPeriod) = computeStateNumber(p)
+        VisitedProfits(iPeriod) = PI(computeActionNumber(pPrime),iAgent)
+        !
+        ! Check if the state has already been visited
+        !
+        IF ((iPeriod .GE. 2) .AND. (ANY(VisitedStates(:iPeriod-1) .EQ. VisitedStates(iPeriod)))) THEN
+            !
+            PreCycleLength = MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
+            CycleLength = iPeriod-PreCycleLength
+            EXIT
+            !
+        END IF
+        !
+        ! After period 1, every agent follows the optimal strategy
+        !
+        pPrime = OptimalStrategy(VisitedStates(iPeriod),:)
+        !
+    END DO
+    !
+    ! 2. Compute state value function for the optimal strategy
+    !
+    PreCycleProfit = SUM(DiscountFactors(0:PreCycleLength-1,iAgent)*VisitedProfits(1:PreCycleLength))
+    CycleProfit = SUM(DiscountFactors(0:CycleLength-1,iAgent)*VisitedProfits(PreCycleLength+1:iPeriod))
+    Qcell = PreCycleProfit+delta(iAgent)**PreCycleLength*CycleProfit/(1.d0-delta(iAgent)**CycleLength)
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE computeQcell
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

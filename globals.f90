@@ -16,7 +16,7 @@ REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
 INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     itersInPerfMeasPeriod, printQ, printP, codModel, PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
     typeExplorationMechanism, DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
-    typePayoffInput, numAgents, numActions, numDemandParameters, &
+    typePayoffInput, numAgents, numActions, numDemandParameters, numPeriods, &
     numExplorationParameters, computeQLearningResults, computeConvergenceResults, computePreShockCycles, &
     computeImpulseResponseToBR, computeImpulseResponseToNash, computeImpulseResponseToAll, &
     computeDetailedImpulseResponseToAll, &
@@ -30,7 +30,7 @@ INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), in
     computeMixedStrategies(:), QMatrixInitializationT(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     maxValQ(:,:), NashPrices(:), CoopPrices(:), &
-    PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), & 
+    PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), DiscountFactors(:,:), & 
     meanProfit(:), seProfit(:), meanProfitGain(:), seProfitGain(:), DemandParameters(:), &
     NashMarketShares(:), CoopMarketShares(:), PricesGrids(:,:), MExpl(:), ExplorationParameters(:), &
     QMatrixInitializationR(:,:), QMatrixInitializationU(:)
@@ -89,6 +89,7 @@ CONTAINS
     LengthStates = MAX(1,numAgents*DepthState0)
     lengthStatesPrint = LengthStates*(1+FLOOR(LOG10(DBLE(numPrices))))+LengthStates-1
     numStates = numPrices**(numAgents*DepthState0)
+    numPeriods = numStates+1
     numActions = numPrices**numAgents   ! Actions contain combinations of prices;
                                         ! they coincide with states when DepthState == 1
     lengthStrategies = numAgents*numStates
@@ -158,7 +159,7 @@ CONTAINS
     !
     ALLOCATE(indexActions(numActions,numAgents), indexStates(numStates,LengthStates), &
         indexEquivalentStates(numStates,numAgents), timeToConvergence(numGames), &
-        converged(numGames),cStates(LengthStates),cActions(numAgents), &
+        converged(numGames),cStates(LengthStates),cActions(numAgents),DiscountFactors(0:numStates,numAgents), &
         maxValQ(numStates,numAgents), DemandParameters(numDemandParameters), &
         ExplorationParameters(numExplorationParameters), MExpl(numExplorationParameters), &
         alpha(numAgents),delta(numAgents),NashProfits(numAgents),CoopProfits(numAgents), &
@@ -197,7 +198,7 @@ CONTAINS
     ! Beginning execution
     !
     DEALLOCATE(indexActions,timeToConvergence,converged,cStates,cActions,maxValQ, &
-        labelStates,indexStates,NashProfits,CoopProfits,QFileFolderName, &
+        labelStates,indexStates,NashProfits,CoopProfits,QFileFolderName,DiscountFactors, &
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
@@ -238,6 +239,7 @@ CONTAINS
             LOG(1.d0-(DBLE(numPrices-1)/DBLE(numPrices))**numAgents/(DBLE(numStates*numPrices)*MExpl))
         !
     END IF
+    DiscountFactors = TRANSPOSE(RESHAPE((/ (delta**i, i = 0, numPeriods-1) /),(/ numAgents,numPeriods /)))
     !
     ! Ending execution and returning control
     !

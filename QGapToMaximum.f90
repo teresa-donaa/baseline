@@ -25,15 +25,14 @@ CONTAINS
     !
     INTEGER, PARAMETER :: numThresPathCycleLength = 10
     INTEGER, PARAMETER :: ThresPathCycleLength(numThresPathCycleLength) = (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 /)
-    INTEGER :: numPeriods, iPeriod, iGame, iState, iAgent, iPrice, iThres, i, j, &
+    INTEGER :: iPeriod, iGame, iState, iAgent, iPrice, iThres, i, j, &
         PathCycleStates(numStates+1), PathCycleLength(numGames), &
         OptimalStrategy(numStates,numAgents), lastObservedStateNumber, &
         p(DepthState,numAgents), pPrime(numAgents), OptimalPrice, &
         VisitedStates(numStates+1), PreCycleLength, CycleLength
     INTEGER, DIMENSION(0:numThresPathCycleLength,0:numAgents) :: NumQGapTot, NumQGapOnPath, &
         NumQGapNotOnPath, NumQGapNotBRAllStates, NumQGapNotBRonPath, NumQGapNotEqAllStates, NumQGapNotEqonPath
-    REAL(8) :: DiscountFactors(0:numStates,numAgents), &
-        QTrue(numStates,numPrices,numAgents), VisitedProfits(numStates+1), &
+    REAL(8) :: QTrue(numStates,numPrices,numAgents), VisitedProfits(numStates+1), &
         PreCycleProfit, CycleProfit, QGap(numStates,numAgents), MaxQTrue(numStates,numAgents), tmp
     REAL(8), DIMENSION(0:numThresPathCycleLength,0:numAgents) :: SumQGapTot, SumQGapOnPath, &
         SumQGapNotOnPath, SumQGapNotBRAllStates, SumQGapNotBRonPath, SumQGapNotEqAllStates, SumQGapNotEqonPath
@@ -48,9 +47,6 @@ CONTAINS
     ! Initializing variables
     !
     !$ CALL OMP_SET_NUM_THREADS(numCores)
-    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
-                                    ! many of the variables above!!!
-    DiscountFactors = TRANSPOSE(RESHAPE((/ (delta**iPeriod, iPeriod = 0, numPeriods-1) /),(/ numAgents,numPeriods /)))
     PathCycleLength = 0
     !
     SumQGapTot = 0.d0

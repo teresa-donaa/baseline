@@ -23,7 +23,6 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    INTEGER, PARAMETER :: numPeriods = 500
     INTEGER :: p(DepthState,numAgents), pPrime(numAgents), iPeriod, jAgent, iDepth, &
         iGame, optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
         i, visitedStates(numStates), pHist(numPeriods,DepthState,numAgents)

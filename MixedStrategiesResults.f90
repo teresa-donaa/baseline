@@ -22,7 +22,7 @@ CONTAINS
     ! Declaring local variable
     !
     INTEGER, PARAMETER :: numPeriodsPrint = 25
-    INTEGER :: iModel, i, j, iGame, iPeriod, iAgent, jAgent, numPeriods, iCycle, numPriceCycles, iPriceCycle
+    INTEGER :: iModel, i, j, iGame, iPeriod, iAgent, jAgent, iCycle, numPriceCycles, iPriceCycle
     INTEGER :: p(DepthState,numAgents), pPrime(numAgents)
     INTEGER :: OptimalStrategyVec(lengthStrategies), CicleLengthVec(numAgents), CycleLength
     INTEGER :: visitedStates(numStates+1), optimalStrategy(numStates,numAgents), &
@@ -112,8 +112,6 @@ CONTAINS
     !
     ! Initializing other variables
     !
-    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
-                                    ! many of the variables above!!!
     Profits = 0.d0
     priceTrajectories = 0.d0
     profitTrajectories = 0.d0

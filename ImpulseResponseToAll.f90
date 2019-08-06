@@ -29,7 +29,7 @@ CONTAINS
         p(DepthState,numAgents), pPrime(numAgents), numPeriodsShockTmp(numShockPeriodsPrint,numAgents), &
         iStatePre, iGame, iAgent, iPrice, iPeriod, jAgent, &
         optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
-        indexShockState(LengthStates), numPeriods, iThres, i, j
+        indexShockState(LengthStates), iThres, i, j
     INTEGER, DIMENSION(numStates+1,numAgents) :: indexPricesPre
     REAL(8) :: nn
     REAL(8), DIMENSION(numStates+1,numAgents) :: visitedPrices, visitedProfits, PricesPre, ProfitsPre
@@ -65,8 +65,6 @@ CONTAINS
     !
     !$ CALL OMP_SET_NUM_THREADS(numCores)
     !
-    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
-                                    ! many of the variables above!!!
     avgPricesPre = 0.d0
     avgPricesShock = 0.d0
     avgPricesPost = 0.d0

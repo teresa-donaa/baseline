@@ -29,7 +29,7 @@ CONTAINS
         p(DepthState,numAgents), pPrime(numAgents), &
         iStatePre, iGame, iAgent, iPrice, iPeriod, jAgent, &
         optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
-        indexShockState(LengthStates), numPeriods, i, j
+        indexShockState(LengthStates), i, j
 	INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     INTEGER, DIMENSION(numStates+1,numAgents) :: indexPricesPre
     REAL(8) :: IC_Condition, avgIC_Condition
@@ -43,11 +43,6 @@ CONTAINS
     ! Beginning execution
     !
     PRINT*, 'Computing Detailed Impulse Responses to all prices'
-    !
-    ! Initializing variables
-    !
-    numPeriods = numStates+1        ! If different from numStates, check the dimensions of
-                                    ! many of the variables above!!!
     !
     ! Reading strategies and states at convergence from file
     !
