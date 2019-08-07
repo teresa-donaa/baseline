@@ -34,7 +34,7 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "detailed_IR_analysis.txt"
+ModelName = "figure_1.txt"
 FileName = "mod_" // ModelName
 !
 OPEN(UNIT = 10001,FILE = FileName)

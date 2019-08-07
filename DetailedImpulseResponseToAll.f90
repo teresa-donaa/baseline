@@ -174,6 +174,7 @@ CONTAINS
                     avgPricesPost = 0.d0
                     avgProfitsPost = 0.d0
                     visitedStates = 0
+                    p = RESHAPE(convertNumberBase(visitedStatesPre(iStatePre)-1,numPrices,numAgents*DepthState),(/ DepthState,numAgents /))
                     pPrime = indexPricesPre(iStatePre,:)
                     !
                     ! Price selection in shock period:

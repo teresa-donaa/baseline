@@ -2,6 +2,7 @@ MODULE QGapToMaximum
 !
 USE globals
 USE QL_routines
+USE EquilibriumCheck
 !
 ! Computes gap in Q function values w.r.t. maximum
 !
@@ -28,12 +29,12 @@ CONTAINS
     INTEGER :: iPeriod, iGame, iState, iAgent, iPrice, iThres, i, j, &
         PathCycleStates(numStates+1), PathCycleLength(numGames), &
         OptimalStrategy(numStates,numAgents), lastObservedStateNumber, &
-        p(DepthState,numAgents), pPrime(numAgents), OptimalPrice, &
+        pPrime(numAgents), OptimalPrice, &
         VisitedStates(numStates+1), PreCycleLength, CycleLength
     INTEGER, DIMENSION(0:numThresPathCycleLength,0:numAgents) :: NumQGapTot, NumQGapOnPath, &
         NumQGapNotOnPath, NumQGapNotBRAllStates, NumQGapNotBRonPath, NumQGapNotEqAllStates, NumQGapNotEqonPath
-    REAL(8) :: QTrue(numStates,numPrices,numAgents), VisitedProfits(numStates+1), &
-        PreCycleProfit, CycleProfit, QGap(numStates,numAgents), MaxQTrue(numStates,numAgents), tmp
+    REAL(8) :: QTrue(numStates,numPrices,numAgents), &
+        QGap(numStates,numAgents), MaxQTrue(numStates,numAgents), tmp
     REAL(8), DIMENSION(0:numThresPathCycleLength,0:numAgents) :: SumQGapTot, SumQGapOnPath, &
         SumQGapNotOnPath, SumQGapNotBRAllStates, SumQGapNotBRonPath, SumQGapNotEqAllStates, SumQGapNotEqonPath
     LOGICAL, DIMENSION(numStates,numAgents) :: IsOnPath, IsBRAllStates, IsBRonPath, IsEqAllStates, IsEqonPath
@@ -90,8 +91,8 @@ CONTAINS
     !$omp parallel do &
     !$omp private(QTrue,MaxQTrue,QGap,IsOnPath,IsBRAllStates,IsBRonPath,IsEqAllStates,IsEqonPath, &
     !$omp   IsBR,iThres,tmp,OptimalStrategy,lastObservedStateNumber,iAgent,PathCycleStates, &
-    !$omp   iState,p,pPrime,OptimalPrice,iPrice,VisitedStates,VisitedProfits,iPeriod, &
-    !$omp   PreCycleLength,CycleLength,PreCycleProfit,CycleProfit,OptimalStrategyVec,LastStateVec,i) &
+    !$omp   iState,pPrime,OptimalPrice,iPrice,VisitedStates,iPeriod, &
+    !$omp   PreCycleLength,CycleLength,OptimalStrategyVec,LastStateVec,i) &
     !$omp firstprivate(numGames,PI) &
     !$omp reduction(+ : SumQGapTot,SumQGapOnPath,SumQGapNotOnPath,SumQGapNotBRAllStates,SumQGapNotBRonPath, &
     !$omp   SumQGapNotEqAllStates,SumQGapNotEqonPath,NumQGapTot,NumQGapOnPath,NumQGapNotOnPath,NumQGapNotBRAllStates, &
@@ -124,7 +125,6 @@ CONTAINS
             !
             DO iAgent = 1, numAgents            ! Start of loop over agents
                 !
-                p = RESHAPE(convertNumberBase(iState-1,numPrices,numAgents*DepthState),(/ DepthState,numAgents /))
                 pPrime = OptimalStrategy(iState,:)
                 OptimalPrice = pPrime(iAgent)
                 !
@@ -132,37 +132,12 @@ CONTAINS
                     !
                     ! First period deviation from optimal strategy
                     !
-                    pPrime(iAgent) = iPrice
+                    ! 1. Compute state value function for the optimal strategy in (iState,iPrice)
                     !
-                    ! 1. Compute pre-cycle and cycle data
+                    CALL computeQCell(OptimalStrategy,iState,iPrice,iAgent,delta, &
+                        QTrue(iState,iPrice,iAgent),VisitedStates,PreCycleLength,CycleLength,iPeriod)
                     !
-                    VisitedStates = 0
-                    VisitedProfits = 0.d0
-                    !
-                    DO iPeriod = 1, numPeriods  ! Start of loop over future dates
-                        !
-                        IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
-                        p(1,:) = pPrime
-                        VisitedStates(iPeriod) = computeStateNumber(p)
-                        VisitedProfits(iPeriod) = PI(computeActionNumber(pPrime),iAgent)
-                        !
-                        ! Check if the state has already been visited
-                        !
-                        IF ((iPeriod .GE. 2) .AND. (ANY(VisitedStates(:iPeriod-1) .EQ. VisitedStates(iPeriod)))) THEN
-                            !
-                            PreCycleLength = MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
-                            CycleLength = iPeriod-PreCycleLength
-                            EXIT
-                            !
-                        END IF
-                        !
-                        ! After period 1, every agent follows the optimal strategy
-                        !
-                        pPrime = OptimalStrategy(VisitedStates(iPeriod),:)
-                        !
-                    END DO                      ! End of loop over future dates
-                    !
-                    ! 2. Compute Q function value for (state,price,agent) triplet
+                    ! 2. Check if state is on path
                     !
                     IF ((iPrice .EQ. OptimalPrice) .AND. (iState .EQ. lastObservedStateNumber)) THEN
                         !
@@ -170,10 +145,6 @@ CONTAINS
                         PathCycleLength(iGame) = CycleLength
                         !
                     END IF
-                    PreCycleProfit = SUM(DiscountFactors(0:PreCycleLength-1,iAgent)*VisitedProfits(:PreCycleLength))
-                    CycleProfit = SUM(DiscountFactors(0:CycleLength-1,iAgent)*VisitedProfits(PreCycleLength+1:iPeriod))
-                    QTrue(iState,iPrice,iAgent) = &
-                        PreCycleProfit+delta(iAgent)**PreCycleLength*CycleProfit/(1.d0-delta(iAgent)**CycleLength)
                     !
                 END DO                          ! End of loop over prices
                 !

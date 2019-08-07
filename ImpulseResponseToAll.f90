@@ -213,6 +213,7 @@ CONTAINS
                 DO iStatePre = 1, PeriodsLengthPre      ! Start of loop over pre-shock cycle states
                     !
                     visitedStates = 0
+                    p = RESHAPE(convertNumberBase(visitedStatesPre(iStatePre)-1,numPrices,numAgents*DepthState),(/ DepthState,numAgents /))
                     pPrime = indexPricesPre(iStatePre,:)
                     !
                     ! Price selection in shock period:

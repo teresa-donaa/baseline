@@ -2,6 +2,7 @@ MODULE ImpulseResponseToBR
 !
 USE globals
 USE QL_routines
+USE EquilibriumCheck
 !
 ! Computes Impulse Response analysis to a one-period deviation to best response
 !
@@ -225,13 +226,14 @@ CONTAINS
             DO iStatePre = 1, PeriodsLengthPre      ! Start of loop over pre-shock cycle states
                 !
                 visitedStates = 0
+                p = RESHAPE(convertNumberBase(visitedStatesPre(iStatePre)-1,numPrices,numAgents*DepthState),(/ DepthState,numAgents /))
                 pPrime = indexPricesPre(iStatePre,:)
                 !
                 ! Price selection in shock period:
                 ! Agent "iAgent" selects the best deviation price,
                 ! The other agents stick to the strategy at convergence
                 !
-                pPrime(iAgent) = ComputeBestResponse(iAgent,p,PI(:,iAgent))
+                pPrime(iAgent) = ComputeStaticBestResponse(iAgent,p,PI(:,iAgent))
                 !
                 flagReturnedToState = .FALSE.
                 DO iPeriod = 1, MAX(numShockPeriodsPrint,numPeriods)
@@ -661,9 +663,9 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    FUNCTION ComputeBestResponse ( iAgent, p, PIiAgent )
+    FUNCTION ComputeStaticBestResponse ( iAgent, p, PIiAgent )
     !
-    ! Computes best response of one agent given the other agents' prices
+    ! Computes static best response of one agent given the other agents' prices
     !
     IMPLICIT NONE
     !
@@ -675,7 +677,7 @@ CONTAINS
     !
     ! Declare function's type
     !
-    INTEGER :: ComputeBestResponse
+    INTEGER :: ComputeStaticBestResponse
     !
     ! Declare local variables
     !
@@ -703,11 +705,51 @@ CONTAINS
         selProfits(iPrice) = PIiAgent(computeActionNumber(tmp1))
         !
     END DO
-    ComputeBestResponse = MINVAL(MAXLOC(selProfits))
+    ComputeStaticBestResponse = MINVAL(MAXLOC(selProfits))
     !
     ! Ending execution and returning control
     !
-    END FUNCTION ComputeBestResponse    
+    END FUNCTION ComputeStaticBestResponse    
+!
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    FUNCTION ComputeDynamicBestResponse ( OptimalStrategy, iState, iAgent, delta )
+    !
+    ! Computes dynamic best response of one agent given the other agents' prices
+    !
+    IMPLICIT NONE
+    !
+    ! Declare dummy variables
+    !
+    INTEGER, INTENT(IN) :: OptimalStrategy(numStates,numAgents)
+    INTEGER, INTENT(IN) :: iState
+    INTEGER, INTENT(IN) :: iAgent
+    REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
+    !
+    ! Declare function's type
+    !
+    INTEGER :: ComputeDynamicBestResponse
+    !
+    ! Declare local variables
+    !
+    INTEGER :: iPrice, PreCycleLength, CycleLength, iPeriod
+    INTEGER, DIMENSION(numStates+1) :: VisitedStates
+    REAL(8), DIMENSION(numPrices) :: selQ
+    !
+    ! Beginning execution
+    !
+    selQ = 0.d0
+    DO iPrice = 1, numPrices
+        !
+        CALL computeQcell(OptimalStrategy,iState,iPrice,iAgent,delta, &
+            selQ(iPrice),VisitedStates,PreCycleLength,CycleLength,iPeriod)
+        !
+    END DO
+    ComputeDynamicBestResponse = MINVAL(MAXLOC(selQ))
+    !
+    ! Ending execution and returning control
+    !
+    END FUNCTION ComputeDynamicBestResponse    
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
