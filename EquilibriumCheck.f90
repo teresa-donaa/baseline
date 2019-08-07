@@ -26,7 +26,7 @@ CONTAINS
     INTEGER, PARAMETER :: numThresPathCycleLength = 10
     INTEGER, PARAMETER :: ThresPathCycleLength(numThresPathCycleLength) = (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 /)
     INTEGER :: iGame, iAgent, iState, iPrice, iPeriod, iThres, i, j, PreCycleLength, CycleLength, &
-        OptimalStrategy(numStates,numAgents), pPrime(numAgents), VisitedStates(numStates+1), &
+        OptimalStrategy(numStates,numAgents), pPrime(numAgents), VisitedStates(numPeriods), &
         OptimalPrice, PathCycleStates(numStates), lastObservedStateNumber, PathCycleLength(numGames), &
         numStatesBRAll(numAgents,numGames), numStatesBRPathCycle(numAgents,numGames), &
         numStatesEqAll(numGames), numStatesEqPathCycle(numGames), &
@@ -89,7 +89,7 @@ CONTAINS
         LastStateVec = indexLastState(:,iGame)
         !$omp end critical
         !
-        optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
+        OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
         lastObservedStateNumber = computeStateNumber(RESHAPE(LastStateVec, (/ DepthState,numAgents /) ))
         !
         IsBestReply = 0
@@ -375,13 +375,13 @@ CONTAINS
     INTEGER, INTENT(IN) :: iAgent
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
     REAL(8), INTENT(OUT) :: QCell
-    INTEGER, DIMENSION(numStates+1), INTENT(OUT) :: VisitedStates
+    INTEGER, DIMENSION(numPeriods), INTENT(OUT) :: VisitedStates
     INTEGER, INTENT(OUT) :: PreCycleLength, CycleLength, iPeriod
     !
     ! Declaring local variable
     !
     INTEGER :: p(DepthState,numAgents), pPrime(numAgents)
-    REAL(8) :: VisitedProfits(numStates+1), PreCycleProfit, CycleProfit
+    REAL(8) :: VisitedProfits(numPeriods), PreCycleProfit, CycleProfit
     !
     ! Beginning execution
     !

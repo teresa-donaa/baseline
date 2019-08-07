@@ -27,10 +27,10 @@ CONTAINS
     INTEGER, PARAMETER :: numThresPathCycleLength = 10
     INTEGER, PARAMETER :: ThresPathCycleLength(numThresPathCycleLength) = (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 /)
     INTEGER :: iPeriod, iGame, iState, iAgent, iPrice, iThres, i, j, &
-        PathCycleStates(numStates+1), PathCycleLength(numGames), &
+        PathCycleStates(numPeriods), PathCycleLength(numGames), &
         OptimalStrategy(numStates,numAgents), lastObservedStateNumber, &
         pPrime(numAgents), OptimalPrice, &
-        VisitedStates(numStates+1), PreCycleLength, CycleLength
+        VisitedStates(numPeriods), PreCycleLength, CycleLength
     INTEGER, DIMENSION(0:numThresPathCycleLength,0:numAgents) :: NumQGapTot, NumQGapOnPath, &
         NumQGapNotOnPath, NumQGapNotBRAllStates, NumQGapNotBRonPath, NumQGapNotEqAllStates, NumQGapNotEqonPath
     REAL(8) :: QTrue(numStates,numPrices,numAgents), &
@@ -109,7 +109,7 @@ CONTAINS
         LastStateVec = indexLastState(:,iGame)
         !$omp end critical
         !
-        optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
+        OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
         lastObservedStateNumber = computeStateNumber(RESHAPE(LastStateVec, (/ DepthState,numAgents /) ))
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

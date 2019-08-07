@@ -24,8 +24,8 @@ CONTAINS
     ! Declaring local variable
     !
     INTEGER :: p(DepthState,numAgents), pPrime(numAgents), iPeriod, jAgent, iDepth, &
-        iGame, optimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
-        i, visitedStates(numStates), pHist(numPeriods,DepthState,numAgents)
+        iGame, OptimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
+        i, VisitedStates(numStates), pHist(numPeriods,DepthState,numAgents)
     REAL(8), DIMENSION(numPeriods,numAgents) :: Prices, Profits, avgPrices, avgProfits
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     !
@@ -79,10 +79,10 @@ CONTAINS
         OptimalStrategyVec = indexStrategies(:,iGame)
         LastStateVec = indexLastState(:,iGame)
         !
-        optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
+        OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
         IF (DepthState0 .EQ. 0) THEN
             !
-            LastObservedPrices = optimalStrategy
+            LastObservedPrices = OptimalStrategy
             !
         ELSE IF (DepthState0 .GE. 1) THEN
             !
@@ -103,7 +103,7 @@ CONTAINS
         DO iPeriod = 1, numPeriods
             !
             pHist(iPeriod,:,:) = p
-            visitedStates(iPeriod) = computeStateNumber(p)
+            VisitedStates(iPeriod) = computeStateNumber(p)
             DO jAgent = 1, numAgents
                 !
                 Prices(iPeriod,jAgent) = PricesGrids(pPrime(jAgent),jAgent)
@@ -112,7 +112,7 @@ CONTAINS
                 avgProfits(iPeriod,jAgent) = avgProfits(iPeriod,jAgent)+Profits(iPeriod,jAgent)/DBLE(numGames)
                 !
             END DO
-            pPrime = optimalStrategy(visitedStates(iPeriod),:)
+            pPrime = OptimalStrategy(VisitedStates(iPeriod),:)
             IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
             p(1,:) = pPrime
             !

@@ -26,10 +26,10 @@ CONTAINS
     INTEGER :: i, j, iGame, iPeriod, iAgent, CycleLength
     INTEGER :: p(DepthState,numAgents), pPrime(numAgents)
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
-    INTEGER :: visitedStates(numStates+1), optimalStrategy(numStates,numAgents), &
+    INTEGER :: VisitedStates(numPeriods), OptimalStrategy(numStates,numAgents), &
         LastObservedPrices(DepthState,numAgents)
-    INTEGER :: pHist(numStates+1,numAgents)
-    REAL(8) :: Profits(numGames,numAgents), visitedProfits(numStates+1,numAgents), AvgProfits(numGames)
+    INTEGER :: pHist(numPeriods,numAgents)
+    REAL(8) :: Profits(numGames,numAgents), visitedProfits(numPeriods,numAgents), AvgProfits(numGames)
     REAL(8), DIMENSION(numAgents) :: meanProfits, seProfit, meanProfitGain, seProfitGain
     REAL(8) :: meanAvgProfit, seAvgProfit, meanAvgProfitGain, seAvgProfitGain
     REAL(8) :: FreqStates(numGames,numStates), meanFreqStates(numStates)
@@ -76,10 +76,10 @@ CONTAINS
         OptimalStrategyVec = indexStrategies(:,iGame)
         LastStateVec = indexLastState(:,iGame)
         !
-        optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /))
+        OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /))
         IF (DepthState0 .EQ. 0) THEN
             !
-            LastObservedPrices = optimalStrategy
+            LastObservedPrices = OptimalStrategy
             !
         ELSE IF (DepthState0 .GE. 1) THEN
             !
@@ -91,17 +91,17 @@ CONTAINS
         ! Convergence analysis
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         !
-        visitedStates = 0
+        VisitedStates = 0
         visitedProfits = 0.d0
         pHist = 0
         p = LastObservedPrices
-        pPrime = optimalStrategy(computeStateNumber(p),:)
+        pPrime = OptimalStrategy(computeStateNumber(p),:)
         DO iPeriod = 1, numPeriods
             !
             IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
             p(1,:) = pPrime
             pHist(iPeriod,:) = pPrime
-            visitedStates(iPeriod) = computeStateNumber(p)
+            VisitedStates(iPeriod) = computeStateNumber(p)
             DO iAgent = 1, numAgents
                 !
                 visitedProfits(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
@@ -110,18 +110,18 @@ CONTAINS
             !
             ! Check if the state has already been visited
             !
-            IF ((iPeriod .GE. 2) .AND. (ANY(visitedStates(:iPeriod-1) .EQ. visitedStates(iPeriod)))) EXIT
+            IF ((iPeriod .GE. 2) .AND. (ANY(VisitedStates(:iPeriod-1) .EQ. VisitedStates(iPeriod)))) EXIT
             !
             ! Update pPrime and iterate
             !
-            pPrime = optimalStrategy(visitedStates(iPeriod),:)
+            pPrime = OptimalStrategy(VisitedStates(iPeriod),:)
             !
         END DO
         !
-        CycleLength = iPeriod-MINVAL(MINLOC((visitedStates(:iPeriod-1)-visitedStates(iPeriod))**2))
+        CycleLength = iPeriod-MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
         Profits(iGame,:) = SUM(visitedProfits(iPeriod-CycleLength+1:iPeriod,:),DIM = 1)/ &
                 DBLE(CycleLength)
-        FreqStates(iGame,visitedStates(iPeriod-CycleLength+1:iPeriod)) = 1.d0/DBLE(CycleLength)
+        FreqStates(iGame,VisitedStates(iPeriod-CycleLength+1:iPeriod)) = 1.d0/DBLE(CycleLength)
         !
         ! Computing and writing price cycles
         !

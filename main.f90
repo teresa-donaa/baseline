@@ -224,7 +224,7 @@ END IF
 !
 IF (computeMixedStrategies(1) .GT. 0) THEN
     !
-    ALLOCATE(indexStrategies(lengthStrategies,numGames),priceCycles((numStates+1)*numAgents,numGames), &
+    ALLOCATE(indexStrategies(lengthStrategies,numGames),priceCycles(numPeriods*numAgents,numGames), &
         sampledIndexStrategies(lengthStrategies,numGames),sampledPriceCycles(numStates+2,numAgents*numGames), &
         alpha_tmp(numAgents),beta_tmp(numAgents),delta_tmp(numAgents))
     !

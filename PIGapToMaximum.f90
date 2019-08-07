@@ -26,14 +26,14 @@ CONTAINS
     !
     INTEGER, PARAMETER :: numThresPathCycleLength = 10
     INTEGER, PARAMETER :: ThresPathCycleLength(numThresPathCycleLength) = (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 /)
-    INTEGER :: iPeriod, iGame, iState, iAgent, iPrice, iThres, i, j, PathCycleStates(numStates+1), &
+    INTEGER :: iPeriod, iGame, iState, iAgent, iPrice, iThres, i, j, PathCycleStates(numPeriods), &
         PathCycleLength(numGames), OptimalStrategy(numStates,numAgents), lastObservedStateNumber, &
         p(DepthState,numAgents), pPrime(numAgents), OptimalPrice, &
-        VisitedStates(numStates+1), PreCycleLength, CycleLength, &
+        VisitedStates(numPeriods), PreCycleLength, CycleLength, &
         PossibleActions(numPrices), PriceVector(numPrices)
     INTEGER, DIMENSION(0:numThresPathCycleLength,0:numAgents) :: NumAvgPIGapTot, NumAvgPIGapOnPath, &
         NumAvgPIGapNotOnPath, NumAvgPIGapNotBRAllStates, NumAvgPIGapNotBRonPath, NumAvgPIGapNotEqAllStates, NumAvgPIGapNotEqonPath
-    REAL(8) :: VisitedProfits(numStates+1), MaxProfits(numStates+1), &
+    REAL(8) :: VisitedProfits(numPeriods), MaxProfits(numPeriods), &
         AvgVisitedProfits(numStates,numAgents), AvgMaxProfits(numStates,numAgents), &
         AvgPIGap(numStates,numAgents), AvgProfitGainGap(numStates,numAgents), &
         QTrue(numStates,numPrices,numAgents), QGap(numStates,numAgents), MaxQTrue(numStates,numAgents), tmp
@@ -113,7 +113,7 @@ CONTAINS
         LastStateVec = indexLastState(:,iGame)
         !$omp end critical
         !
-        optimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
+        OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
         lastObservedStateNumber = computeStateNumber(RESHAPE(LastStateVec, (/ DepthState,numAgents /) ))
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
