@@ -4,7 +4,6 @@ USE globals
 USE LearningSimulation
 USE LearningSimulationRestart
 USE ConvergenceResults
-USE PreShockCycles
 USE ImpulseResponseToBR
 USE ImpulseResponseToNash
 USE ImpulseResponseToAll
@@ -21,7 +20,7 @@ IMPLICIT NONE
 !
 ! Declaring variables and parameters
 !
-INTEGER :: iModel, iter, i, j, h, iGames, numGamesConverged, iAgent, errcode, nlines
+INTEGER :: iModel, iter, i, j, h, iGame, numGamesConverged, iAgent, errcode, nlines
 REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
 REAL(8) :: meanAvgProfit, seAvgProfit
 REAL(8) :: meanAvgProfitGain, seAvgProfitGain
@@ -34,7 +33,7 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "figure_1.txt"
+ModelName = "detailed_IR_analysis.txt"
 FileName = "mod_" // ModelName
 !
 OPEN(UNIT = 10001,FILE = FileName)
@@ -64,12 +63,6 @@ IF (computeConvergenceResults .EQ. 1) THEN
     OPEN(UNIT = 100022,FILE = FileName)
     !
 END IF
-IF (computePreShockCycles .EQ. 1) THEN
-    !
-    FileName = "PreShockCycles_" // ModelName
-    OPEN(UNIT = 100021,FILE = FileName)
-    !
-END IF
 IF (computeImpulseResponseToBR .EQ. 1) THEN
     !
     FileName = "irToBR_" // ModelName
@@ -86,6 +79,12 @@ IF (computeImpulseResponseToAll .EQ. 1) THEN
     !
     FileName = "irToAll_" // ModelName
     OPEN(UNIT = 100032,FILE = FileName)
+    !
+END IF
+IF (computeDetailedImpulseResponseToAll .EQ. 1) THEN
+    !
+    FileName = "det_irToAll_" // ModelName
+    OPEN(UNIT = 100033,FILE = FileName)
     !
 END IF
 IF (computeEquilibriumCheck .EQ. 1) THEN
@@ -142,7 +141,7 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         ! Creating I/O filenames
         !
         i = 1+INT(LOG10(DBLE(numModels)))
-        WRITE(ModelNumber, "(I0.<i>, A4)") iModel, ".txt"
+        WRITE(ModelNumber, "(I0.<i>, A4)") codModel, ".txt"
         FileNameIndexStrategies = "indexStrategiesTransposed_" // ModelNumber
         FileNameIndexLastState = "indexLastState_" // ModelNumber
         FileNamePriceCycles = "priceCycles_" // ModelNumber
@@ -177,10 +176,6 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         ! Results at convergence
         ! 
         IF (computeConvergenceResults .EQ. 1) CALL ComputeConvResults(iModel)
-        !
-        ! Pre-shock cycles of prices and profits
-        ! 
-        IF (computePreShockCycles .EQ. 1) CALL computePSCycles(iModel)
         !
         ! Impulse Response analysis to one-period deviation to static best response
         ! 
@@ -297,10 +292,9 @@ CALL closeBatch()
 CLOSE(UNIT = 10001)
 IF (computeQLearningResults .EQ. 1) CLOSE(UNIT = 10002)
 IF (computeConvergenceResults .EQ. 1) CLOSE(UNIT = 100022)
-IF (computePreShockCycles .EQ. 1) CLOSE(UNIT = 100021)
 IF (computeImpulseResponseToBR .EQ. 1) CLOSE(UNIT = 10003)
 IF (computeImpulseResponseToNash .NE. 0) CLOSE(UNIT = 100031)
-IF (computeImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100032)
+IF (computeDetailedImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100033)
 IF (computeEquilibriumCheck .EQ. 1) CLOSE(UNIT = 10004)
 IF (computeQGapToMaximum .EQ. 1) CLOSE(UNIT = 10006)
 IF (computePIGapToMaximum .EQ. 1) CLOSE(UNIT = 10007)

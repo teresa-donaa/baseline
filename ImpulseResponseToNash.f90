@@ -37,7 +37,7 @@ CONTAINS
     INTEGER, DIMENSION(numAgents,numThresPeriodsLength) :: FreqPeriodLengthShock, FreqPeriodLengthPost
     INTEGER :: FreqPunishmentStrategy(numAgents,0:numThresPeriodsLength)
     REAL(8) :: nn, pNash
-    REAL(8), DIMENSION(numPeriods,numAgents) :: visitedPrices, visitedProfits, PricesPre, ProfitsPre
+    REAL(8), DIMENSION(numPeriods,numAgents) :: visitedPrices, VisitedProfits, PricesPre, ProfitsPre
     REAL(8), DIMENSION(numAgents) :: avgPricesPre, avgProfitsPre, avgPricesPreQ, avgProfitsPreQ
     REAL(8), DIMENSION(numShockPeriodsPrint,numAgents,numAgents) :: &
         avgPricesShock, avgProfitsShock, avgPricesShockQ, avgProfitsShockQ, &
@@ -121,7 +121,7 @@ CONTAINS
     !
     !$omp parallel do &
     !$omp private(OptimalStrategy,LastObservedPrices,VisitedStatesPre,visitedPrices, &
-    !$omp   visitedProfits,p,pPrime,iPeriod,iAgent,pNash,OptimalStrategyVec,LastStateVec, &
+    !$omp   VisitedProfits,p,pPrime,iPeriod,iAgent,pNash,OptimalStrategyVec,LastStateVec, &
     !$omp   VisitedStates,flagReturnedToState,jAgent,indexShockState,PricesPre,ProfitsPre, &
     !$omp   PeriodsLengthPre,iStatePre,PeriodsLengthShock,PunishmentStrategy,PeriodsLengthPost, &
     !$omp   avgPricesShockTmp,avgProfitsShockTmp,avgPricesPercShockTmp,avgProfitsPercShockTmp, &
@@ -307,7 +307,7 @@ CONTAINS
                 !
                 VisitedStates = 0
                 visitedPrices = 0.d0
-                visitedProfits = 0.d0
+                VisitedProfits = 0.d0
                 p = RESHAPE(indexShockState, (/ DepthState,numAgents /) )
                 pPrime = OptimalStrategy(computeStateNumber(p),:)
                 IF (computeImpulseResponseToNash .EQ. -1) &            
@@ -321,7 +321,7 @@ CONTAINS
                     DO jAgent = 1, numAgents
                         !
                         visitedPrices(iPeriod,jAgent) = PricesGrids(pPrime(jAgent),jAgent)
-                        visitedProfits(iPeriod,jAgent) = PI(computeActionNumber(pPrime),jAgent)
+                        VisitedProfits(iPeriod,jAgent) = PI(computeActionNumber(pPrime),jAgent)
                         !
                     END DO
                     !
@@ -356,16 +356,16 @@ CONTAINS
                     DBLE(PeriodsLengthPost)/PricesPre(iStatePre,:))**2/DBLE(PeriodsLengthPre)
                 !
                 avgProfitsPost(iAgent,:) = avgProfitsPost(iAgent,:)+ &
-                    SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    SUM(VisitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
                     DBLE(PeriodsLengthPost)/DBLE(PeriodsLengthPre)
                 avgProfitsPostQ(iAgent,:) = avgProfitsPostQ(iAgent,:)+ &
-                    (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    (SUM(VisitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
                     DBLE(PeriodsLengthPost))**2/DBLE(PeriodsLengthPre)
                 avgProfitsPercPost(iAgent,:) = avgProfitsPercPost(iAgent,:)+ &
-                    (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    (SUM(VisitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
                     DBLE(PeriodsLengthPost)/ProfitsPre(iStatePre,:)/DBLE(PeriodsLengthPre))
                 avgProfitsPercPostQ(iAgent,:) = avgProfitsPercPostQ(iAgent,:)+ &
-                    (SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    (SUM(VisitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
                     DBLE(PeriodsLengthPost)/ProfitsPre(iStatePre,:))**2/DBLE(PeriodsLengthPre)
                 !
             END DO                          ! End of loop over pre-shock cycle states

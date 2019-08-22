@@ -23,38 +23,43 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    INTEGER, PARAMETER :: numThresPathCycleLength = 10
-    INTEGER, PARAMETER :: ThresPathCycleLength(numThresPathCycleLength) = (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 /)
-    INTEGER :: iGame, iAgent, iState, iPrice, iPeriod, iThres, i, j, PreCycleLength, CycleLength, &
-        OptimalStrategy(numStates,numAgents), pPrime(numAgents), VisitedStates(numPeriods), &
-        OptimalPrice, PathCycleStates(numStates), lastObservedStateNumber, PathCycleLength(numGames), &
-        numStatesBRAll(numAgents,numGames), numStatesBRPathCycle(numAgents,numGames), &
-        numStatesEqAll(numGames), numStatesEqPathCycle(numGames), &
-        IsBestReply(numStates,numAgents), &
-        numImprovedPrices, ImprovedPrices(numStates), numPathCycleLength(numThresPathCycleLength)
-    REAL(8) :: StateValueFunction(numStates,numPrices), MaxStateValueFunction, &
-        freqStatesBRAll(numAgents,numGames), freqStatesBRPathCycle(numAgents,numGames), &
-        freqStatesEqAll(numGames), freqStateseqPathCycle(numGames), &
-        avgFreqStatesBRAll(0:numAgents,numThresPathCycleLength), avgFreqStatesBRPathCycle(0:numAgents,numThresPathCycleLength), &
-        avgFreqStatesEqAll(numThresPathCycleLength), avgFreqStatesEqPathCycle(numThresPathCycleLength)
-    INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
+    INTEGER, PARAMETER :: numThresCycleLength = 10
+    REAL(8), PARAMETER :: SlackOffPath = 0.05d0
+    !
+    INTEGER :: iGame, iAgent, iThres, i, j, &
+        OptimalStrategyVec(lengthStrategies), OptimalStrategy(numStates,numAgents), &
+        CycleStates(numPeriods,numGames), CycleStatesGame(numPeriods), &
+        CycleLengthGame, CycleLength(numGames), numCycleLength(0:numThresCycleLength), &
+        ThresCycleLength(numThresCycleLength)
+    INTEGER, DIMENSION(numAgents) :: flagBRAllGame, flagBROnPathGame, flagBROffPathGame
+    INTEGER :: flagEQAllGame, flagEQOnPathGame, flagEQOffPathGame
+    INTEGER, DIMENSION(numAgents,numGames) :: flagBRAll, flagBROnPath, flagBROffPath
+    INTEGER, DIMENSION(numGames) :: flagEQAll, flagEQOnPath, flagEQOffPath
+    !
+    REAL(8) :: r_num
+    REAL(8), DIMENSION(numAgents) :: freqBRAllGame, freqBROnPathGame, freqBROffPathGame
+    REAL(8) :: freqEQAllGame, freqEQOnPathGame, freqEQOffPathGame
+    REAL(8), DIMENSION(numAgents,numGames) :: freqBRAll, freqBROnPath, freqBROffPath
+    REAL(8), DIMENSION(numGames) :: freqEQAll, freqEQOnPath, freqEQOffPath
+    REAL(8), DIMENSION(0:numAgents,0:numThresCycleLength) :: AvgFreqBRAll, AvgFreqBROnPath, AvgFreqBROffPath
+    REAL(8), DIMENSION(0:numThresCycleLength) :: AvgFreqEQAll, AvgFreqEQOnPath, AvgFreqEQOffPath
+    REAL(8), DIMENSION(0:numAgents,0:numThresCycleLength) :: AvgFlagBRAll, AvgFlagBROnPath, AvgFlagBROffPath
+    REAL(8), DIMENSION(0:numThresCycleLength) :: AvgFlagEQAll, AvgFlagEQOnPath, AvgFlagEQOffPath
+    !
+    LOGICAL :: cond(numGames), matcond(numAgents,numGames)
     !
     ! Beginning execution
     !
     PRINT*, 'Computing equilibrium checks'
+    ThresCycleLength = (/ (i, i = 1, numThresCycleLength) /)
     !
     ! Initializing variables
     !
     !$ CALL OMP_SET_NUM_THREADS(numCores)
-    numStatesBRAll = 0
-    numStatesBRPathCycle = 0
-    numStatesEqAll = 0
-    numStatesEqPathCycle = 0
-    PathCycleLength = 0
     !
     ! Reading strategies and states at convergence from file
     !
-    OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")    ! Open indexStrategies file
+    OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")    ! Open indexStrategies txt file
     DO i = 1, lengthStrategies
         !
         IF (MOD(i,10000) .EQ. 0) PRINT*, 'Read ', i, ' lines of indexStrategies'
@@ -62,142 +67,64 @@ CONTAINS
     21  FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
         !
     END DO
-    CLOSE(UNIT = 998)                   ! Close indexStrategies file
-    OPEN(UNIT = 999,FILE = FileNameIndexLastState,STATUS = "OLD")     ! Open indexLastState file
+    CLOSE(UNIT = 998)                   ! Close indexStrategies txt file
+    !
+    OPEN(UNIT = 999,FILE = FileNamePriceCycles,STATUS = "OLD")     ! Open priceCycles txt file
     DO iGame = 1, numGames
         !
-        READ(999,22) indexLastState(:,iGame)
-    22  FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
+        READ(999,22) CycleLength(iGame)
+    22  FORMAT(I8)    
         !
     END DO
-    PRINT*, 'Read indexLastState'
-    CLOSE(UNIT = 999)                   ! Close indexLastState file
+    PRINT*, 'Read Cycles Length'
+    CLOSE(UNIT = 999)                   ! Close priceCycles txt file
+    !
+    OPEN(UNIT = 999,FILE = FileNamePriceCycles,STATUS = "OLD")     ! Re-Open priceCycles txt file
+    DO iGame = 1, numGames
+        !
+        READ(999,23) CycleStates(:CycleLength(iGame),iGame)
+    23  FORMAT(9X, <CycleLength(iGame)>(I<lengthStatesPrint>, 1X))
+        !
+    END DO
+    PRINT*, 'Read Cycles States'
+    CLOSE(UNIT = 999)                   ! Re-Close priceCycles txt file
     !
     ! Beginning loop over games
     !
     !$omp parallel do &
-    !$omp private(OptimalStrategy,lastObservedStateNumber,IsBestReply,iAgent,StateValueFunction,PathCycleStates, &
-    !$omp   iState,pPrime,OptimalPrice,iPrice,VisitedStates,iPeriod, &
-    !$omp   PreCycleLength,CycleLength,OptimalStrategyVec,LastStateVec,i, &
-    !$omp   MaxStateValueFunction,numImprovedPrices,ImprovedPrices)
+    !$omp private(OptimalStrategy,OptimalStrategyVec,CycleLengthGame,CycleStatesGame, &
+    !$omp   freqBRAllGame,freqBROnPathGame,freqBROffPathGame,freqEQAllGame,freqEQOnPathGame,freqEQOffPathGame, &
+    !$omp   flagBRAllGame,flagBROnPathGame,flagBROffPathGame,flagEQAllGame,flagEQOnPathGame,flagEQOffPathGame)
     DO iGame = 1, numGames                  ! Start of loop aver games
         !
         PRINT*, 'iGame = ', iGame
         !
         !$omp critical
         OptimalStrategyVec = indexStrategies(:,iGame)
-        LastStateVec = indexLastState(:,iGame)
+        CycleLengthGame = CycleLength(iGame)
+        CycleStatesGame(:CycleLengthGame) = CycleStates(:CycleLengthGame,iGame)
         !$omp end critical
         !
         OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
-        lastObservedStateNumber = computeStateNumber(RESHAPE(LastStateVec, (/ DepthState,numAgents /) ))
         !
-        IsBestReply = 0
-        DO iAgent = 1, numAgents            ! Start of loop over agents
-            !
-            StateValueFunction = 0.d0
-            PathCycleStates = 0
-            !
-            ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            ! Compute state value function for the optimal strategy in all states and actions
-            ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            !
-            DO iState = 1, numStates        ! Start of loop over states
-                !
-                pPrime = OptimalStrategy(iState,:)
-                OptimalPrice = pPrime(iAgent)
-                !
-                DO iPrice = 1, numPrices    ! Start of loop over prices
-                    !
-                    ! First period deviation from optimal strategy
-                    !
-                    ! 1. Compute state value function for the optimal strategy in (iState,iPrice)
-                    !
-                    CALL computeQcell(OptimalStrategy,iState,iPrice,iAgent,delta, &
-                        StateValueFunction(iState,iPrice),VisitedStates,PreCycleLength,CycleLength,iPeriod)
-                    !
-                    ! 2. Check if state is on path
-                    !
-                    IF ((iPrice .EQ. OptimalPrice) .AND. (iState .EQ. lastObservedStateNumber)) THEN
-                        !
-                        PathCycleStates(:CycleLength) = VisitedStates(PreCycleLength+1:iPeriod)
-                        PathCycleLength(iGame) = CycleLength
-                        !
-                    END IF
-                    !
-                END DO                      ! End of loop over prices
-                !
-            END DO                          ! End of loop over initial states
-            !
-            ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            ! Check best reply condition on all states and on the observed cycle only
-            ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            !
-            DO iState = 1, numStates        ! Start of loop over states
-                !
-                pPrime = OptimalStrategy(iState,:)
-                OptimalPrice = pPrime(iAgent)
-                MaxStateValueFunction = MAXVAL(StateValueFunction(iState,:))
-                numImprovedPrices = 0
-                ImprovedPrices = 0
-                DO iPrice = 1, numPrices    ! Start of loop over prices to find optimal price(s)
-                    !
-                    IF (ABS(StateValueFunction(iState,iPrice)-MaxStateValueFunction) .LE. EPSILON(MaxStateValueFunction)) THEN
-                        !
-                        numImprovedPrices = numImprovedPrices+1                        
-                        ImprovedPrices(numImprovedPrices) = iPrice
-                        !
-                    END IF
-                    !
-                END DO
-                !
-                IF (ANY(ImprovedPrices(:numImprovedPrices) .EQ. OptimalPrice)) THEN
-                    !
-                    IsBestReply(iState,iAgent) = 1
-                    !
-                    ! For all states
-                    !
-                    numStatesBRAll(iAgent,iGame) = numStatesBRAll(iAgent,iGame)+1
-                    IF (ANY(PathCycleStates(:PathCycleLength(iGame)) .EQ. iState)) THEN
-                        !
-                        ! This state belongs to the observed cycle
-                        !
-                        numStatesBRPathCycle(iAgent,iGame) = numStatesBRPathCycle(iAgent,iGame)+1
-                        !
-                    END IF
-                    !
-                END IF
-                !
-            END DO                          ! End of loop over states
-            freqStatesBRAll(iAgent,iGame) = DBLE(numStatesBRAll(iAgent,iGame))/DBLE(numStates)
-            freqStatesBRPathCycle(iAgent,iGame) = DBLE(numStatesBRPathCycle(iAgent,iGame))/DBLE(PathCycleLength(iGame))
-            !
-        END DO                              ! End of loop over agents
+        CALL computeEqCheckGame(OptimalStrategy,CycleLengthGame,CycleStatesGame(:CycleLengthGame),SlackOffPath, &
+            freqBRAllGame,freqBROnPathGame,freqBROffPathGame,freqEQAllGame,freqEQOnPathGame,freqEQOffPathGame, &
+            flagBRAllGame,flagBROnPathGame,flagBROffPathGame,flagEQAllGame,flagEQOnPathGame,flagEQOffPathGame)
         !
-        ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        ! Check equilibrium condition on all states and on the observed cycle only
-        ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        !
-        DO iState = 1, numStates        ! Start of loop over states
-            !
-            IF (ALL(IsBestReply(iState,:) .EQ. 1)) THEN
-                !
-                ! For all states
-                !
-                numStatesEqAll(iGame) = numStatesEqAll(iGame)+1
-                IF (ANY(PathCycleStates(:PathCycleLength(iGame)) .EQ. iState)) THEN
-                    !
-                    ! This state belongs to the observed cycle
-                    !
-                    numStatesEqPathCycle(iGame) = numStatesEqPathCycle(iGame)+1
-                    !
-                END IF
-                !
-            END IF
-            !
-        END DO                          ! End of loop over states
-        freqStatesEqAll(iGame) = DBLE(numStatesEqAll(iGame))/DBLE(numStates)
-        freqStatesEqPathCycle(iGame) = DBLE(numStatesEqPathCycle(iGame))/DBLE(PathCycleLength(iGame))
+        !$omp critical
+        freqBRAll(:,iGame) = freqBRAllGame
+        freqBROnPath(:,iGame) = freqBROnPathGame
+        freqBROffPath(:,iGame) = freqBROffPathGame
+        freqEQAll(iGame) = freqEQAllGame
+        freqEQOnPath(iGame) = freqEQOnPathGame
+        freqEQOffPath(iGame) = freqEQOffPathGame
+        flagBRAll(:,iGame) = flagBRAllGame
+        flagBROnPath(:,iGame) = flagBROnPathGame
+        flagBROffPath(:,iGame) = flagBROffPathGame
+        flagEQAll(iGame) = flagEQAllGame
+        flagEQOnPath(iGame) = flagEQOnPathGame
+        flagEQOffPath(iGame) = flagEQOffPathGame
+        !$omp end critical
         !
     END DO                                  ! End of loop over games
     !$omp end parallel do
@@ -206,92 +133,130 @@ CONTAINS
     ! Computing averages and descriptive statistics
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     !
-    ! Frequencies for optimal cycles' lengths
+    AvgFreqBRAll = 0.d0
+    AvgFreqBROnPath = 0.d0
+    AvgFreqBROffPath = 0.d0
+    AvgFreqEQAll = 0.d0
+    AvgFreqEQOnPath = 0.d0
+    AvgFreqEQOffPath = 0.d0
+    AvgFlagBRAll = 0
+    AvgFlagBROnPath = 0
+    AvgFlagBROffPath = 0
+    AvgFlagEQAll = 0
+    AvgFlagEQOnPath = 0
+    AvgFlagEQOffPath = 0
     !
-    avgFreqStatesBRAll = 0.d0
-    avgFreqStatesBRPathCycle = 0.d0
-    numPathCycleLength = 0
-    DO iThres = 1, numThresPathCycleLength
+    ! Total averages
+    !
+    numCycleLength(0) = numGames
+    !
+    r_num = DBLE(numAgents*numCycleLength(0))
+    AvgFreqBRAll(0,0) = SUM(freqBRAll)/r_num
+    AvgFreqBROnPath(0,0) = SUM(freqBROnPath)/r_num
+    AvgFreqBROffPath(0,0) = SUM(freqBROffPath)/r_num
+    AvgFlagBRAll(0,0) = SUM(FlagBRAll)/r_num
+    AvgFlagBROnPath(0,0) = SUM(FlagBROnPath)/r_num
+    AvgFlagBROffPath(0,0) = SUM(FlagBROffPath)/r_num
+    !
+    r_num = DBLE(numCycleLength(0))
+    AvgFreqEQAll(0) = SUM(freqEQAll)/r_num
+    AvgFreqEQOnPath(0) = SUM(freqEQOnPath)/r_num
+    AvgFreqEQOffPath(0) = SUM(freqEQOffPath)/r_num
+    AvgFlagEQAll(0) = SUM(FlagEQAll)/r_num
+    AvgFlagEQOnPath(0) = SUM(FlagEQOnPath)/r_num
+    AvgFlagEQOffPath(0) = SUM(FlagEQOffPath)/r_num
+    !
+    DO iAgent = 1, numAgents
         !
-        IF (iThres .LT. numThresPathCycleLength) THEN
+        r_num = DBLE(numCycleLength(0))
+        AvgFreqBRAll(iAgent,0) = SUM(freqBRAll(iAgent,:))/r_num
+        AvgFreqBROnPath(iAgent,0) = SUM(freqBROnPath(iAgent,:))/r_num
+        AvgFreqBROffPath(iAgent,0) = SUM(freqBROffPath(iAgent,:))/r_num
+        AvgFlagBRAll(iAgent,0) = SUM(FlagBRAll(iAgent,:))/r_num
+        AvgFlagBROnPath(iAgent,0) = SUM(FlagBROnPath(iAgent,:))/r_num
+        AvgFlagBROffPath(iAgent,0) = SUM(FlagBROffPath(iAgent,:))/r_num
+        !
+    END DO
+    !
+    ! Averages by cycle length
+    !
+    DO iThres = 1, numThresCycleLength
+        !
+        IF (iThres .LT. numThresCycleLength) THEN
             !
-            numPathCycleLength(iThres) = COUNT(PathCycleLength .EQ. ThresPathCycleLength(iThres))
-            DO iAgent = 1, numAgents
-                !
-                IF (numPathCycleLength(iThres) .GT. 0) THEN
-                    !
-                    avgFreqStatesBRAll(iAgent,iThres) = &
-                        SUM(freqStatesBRAll(iAgent,:),MASK = PathCycleLength .EQ. ThresPathCycleLength(iThres))/DBLE(numPathCycleLength(iThres))
-                    avgFreqStatesBRPathCycle(iAgent,iThres) = &
-                        SUM(freqStatesBRPathCycle(iAgent,:),MASK = PathCycleLength .EQ. ThresPathCycleLength(iThres))/DBLE(numPathCycleLength(iThres))
-                    !
-                ELSE
-                    !
-                    avgFreqStatesBRAll(iAgent,iThres) = 0.d0
-                    avgFreqStatesBRPathCycle(iAgent,iThres) = 0.d0
-                    !
-                END IF
-                !
-            END DO
+            cond = (CycleLength .EQ. ThresCycleLength(iThres))
+            numCycleLength(iThres) = COUNT(cond)
             !
-            IF (numPathCycleLength(iThres) .GT. 0) THEN
+            IF (numCycleLength(iThres) .GT. 0) THEN
                 !
-                avgFreqStatesBRAll(0,iThres) = &
-                    SUM(freqStatesBRAll,MASK = SPREAD(PathCycleLength,DIM = 1,NCOPIES = numAgents) .EQ. ThresPathCycleLength(iThres))/DBLE(numAgents*numPathCycleLength(iThres))
-                avgFreqStatesBRPathCycle(0,iThres) = &
-                    SUM(freqStatesBRPathCycle,MASK = SPREAD(PathCycleLength,DIM = 1,NCOPIES = numAgents) .EQ. ThresPathCycleLength(iThres))/DBLE(numAgents*numPathCycleLength(iThres))
-                avgFreqStatesEqAll(iThres) = &
-                    SUM(freqStatesEqAll,MASK = PathCycleLength .EQ. ThresPathCycleLength(iThres))/DBLE(numPathCycleLength(iThres))
-                avgFreqStatesEqPathCycle(iThres) = &
-                    SUM(freqStatesEqPathCycle,MASK = PathCycleLength .EQ. ThresPathCycleLength(iThres))/DBLE(numPathCycleLength(iThres))
+                r_num = DBLE(numAgents*numCycleLength(iThres))
+                matcond = SPREAD(cond,DIM = 1,NCOPIES = numAgents)
                 !
-            ELSE
+                AvgFreqBRAll(0,iThres) = SUM(freqBRAll,MASK = matcond)/r_num
+                AvgFreqBROnPath(0,iThres) = SUM(freqBROnPath,MASK = matcond)/r_num
+                AvgFreqBROffPath(0,iThres) = SUM(freqBROffPath,MASK = matcond)/r_num
+                AvgFlagBRAll(0,iThres) = SUM(FlagBRAll,MASK = matcond)/r_num
+                AvgFlagBROnPath(0,iThres) = SUM(FlagBROnPath,MASK = matcond)/r_num
+                AvgFlagBROffPath(0,iThres) = SUM(FlagBROffPath,MASK = matcond)/r_num
                 !
-                avgFreqStatesBRAll(0,iThres) = 0.d0
-                avgFreqStatesBRPathCycle(0,iThres) = 0.d0
-                avgFreqStatesEqAll(iThres) = 0.d0
-                avgFreqStatesEqPathCycle(iThres) = 0.d0
+                r_num = DBLE(numCycleLength(iThres))
+                AvgFreqEQAll(iThres) = SUM(freqEQAll,MASK = cond)/r_num
+                AvgFreqEQOnPath(iThres) = SUM(freqEQOnPath,MASK = cond)/r_num
+                AvgFreqEQOffPath(iThres) = SUM(freqEQOffPath,MASK = cond)/r_num
+                AvgFlagEQAll(iThres) = SUM(FlagEQAll,MASK = cond)/r_num
+                AvgFlagEQOnPath(iThres) = SUM(FlagEQOnPath,MASK = cond)/r_num
+                AvgFlagEQOffPath(iThres) = SUM(FlagEQOffPath,MASK = cond)/r_num
+                !
+                DO iAgent = 1, numAgents
+                    !
+                    r_num = DBLE(numCycleLength(iThres))
+                    AvgFreqBRAll(iAgent,iThres) = SUM(freqBRAll(iAgent,:),MASK = cond)/r_num
+                    AvgFreqBROnPath(iAgent,iThres) = SUM(freqBROnPath(iAgent,:),MASK = cond)/r_num
+                    AvgFreqBROffPath(iAgent,iThres) = SUM(freqBROffPath(iAgent,:),MASK = cond)/r_num
+                    AvgFlagBRAll(iAgent,iThres) = SUM(FlagBRAll(iAgent,:),MASK = cond)/r_num
+                    AvgFlagBROnPath(iAgent,iThres) = SUM(FlagBROnPath(iAgent,:),MASK = cond)/r_num
+                    AvgFlagBROffPath(iAgent,iThres) = SUM(FlagBROffPath(iAgent,:),MASK = cond)/r_num
+                    !
+                END DO
                 !
             END IF
             !
         ELSE
             !
-            numPathCycleLength(iThres) = COUNT(PathCycleLength .GE. ThresPathCycleLength(iThres))
-            DO iAgent = 1, numAgents
-                !
-                IF (numPathCycleLength(iThres) .GT. 0) THEN
-                    !
-                    avgFreqStatesBRAll(iAgent,iThres) = &
-                        SUM(freqStatesBRAll(iAgent,:),MASK = PathCycleLength .GE. ThresPathCycleLength(iThres))/DBLE(numPathCycleLength(iThres))
-                    avgFreqStatesBRPathCycle(iAgent,iThres) = &
-                        SUM(freqStatesBRPathCycle(iAgent,:),MASK = PathCycleLength .GE. ThresPathCycleLength(iThres))/DBLE(numPathCycleLength(iThres))
-                    !
-                ELSE
-                    !
-                    avgFreqStatesBRAll(iAgent,iThres) = 0.d0
-                    avgFreqStatesBRPathCycle(iAgent,iThres) = 0.d0
-                    !
-                END IF
-                !
-            END DO
+            cond = (CycleLength .GE. ThresCycleLength(iThres))
+            numCycleLength(iThres) = COUNT(cond)
             !
-            IF (numPathCycleLength(iThres) .GT. 0) THEN
+            IF (numCycleLength(iThres) .GT. 0) THEN
                 !
-                avgFreqStatesBRAll(0,iThres) = &
-                    SUM(freqStatesBRAll,MASK = SPREAD(PathCycleLength,DIM = 1,NCOPIES = numAgents) .GE. ThresPathCycleLength(iThres))/DBLE(numAgents*numPathCycleLength(iThres))
-                avgFreqStatesBRPathCycle(0,iThres) = &
-                    SUM(freqStatesBRPathCycle,MASK = SPREAD(PathCycleLength,DIM = 1,NCOPIES = numAgents) .GE. ThresPathCycleLength(iThres))/DBLE(numAgents*numPathCycleLength(iThres))
-                avgFreqStatesEqAll(iThres) = &
-                    SUM(freqStatesEqAll,MASK = PathCycleLength .GE. ThresPathCycleLength(iThres))/DBLE(numPathCycleLength(iThres))
-                avgFreqStatesEqPathCycle(iThres) = &
-                    SUM(freqStatesEqPathCycle,MASK = PathCycleLength .GE. ThresPathCycleLength(iThres))/DBLE(numPathCycleLength(iThres))
+                r_num = DBLE(numAgents*numCycleLength(iThres))
+                matcond = SPREAD(cond,DIM = 1,NCOPIES = numAgents)
                 !
-            ELSE
+                AvgFreqBRAll(0,iThres) = SUM(freqBRAll,MASK = matcond)/r_num
+                AvgFreqBROnPath(0,iThres) = SUM(freqBROnPath,MASK = matcond)/r_num
+                AvgFreqBROffPath(0,iThres) = SUM(freqBROffPath,MASK = matcond)/r_num
+                AvgFlagBRAll(0,iThres) = SUM(FlagBRAll,MASK = matcond)/r_num
+                AvgFlagBROnPath(0,iThres) = SUM(FlagBROnPath,MASK = matcond)/r_num
+                AvgFlagBROffPath(0,iThres) = SUM(FlagBROffPath,MASK = matcond)/r_num
                 !
-                avgFreqStatesBRAll(0,iThres) = 0.d0
-                avgFreqStatesBRPathCycle(0,iThres) = 0.d0
-                avgFreqStatesEqAll(iThres) = 0.d0
-                avgFreqStatesEqPathCycle(iThres) = 0.d0
+                r_num = DBLE(numCycleLength(iThres))
+                AvgFreqEQAll(iThres) = SUM(freqEQAll,MASK = cond)/r_num
+                AvgFreqEQOnPath(iThres) = SUM(freqEQOnPath,MASK = cond)/r_num
+                AvgFreqEQOffPath(iThres) = SUM(freqEQOffPath,MASK = cond)/r_num
+                AvgFlagEQAll(iThres) = SUM(FlagEQAll,MASK = cond)/r_num
+                AvgFlagEQOnPath(iThres) = SUM(FlagEQOnPath,MASK = cond)/r_num
+                AvgFlagEQOffPath(iThres) = SUM(FlagEQOffPath,MASK = cond)/r_num
+                !
+                DO iAgent = 1, numAgents
+                    !
+                    r_num = DBLE(numCycleLength(iThres))
+                    AvgFreqBRAll(iAgent,iThres) = SUM(freqBRAll(iAgent,:),MASK = cond)/r_num
+                    AvgFreqBROnPath(iAgent,iThres) = SUM(freqBROnPath(iAgent,:),MASK = cond)/r_num
+                    AvgFreqBROffPath(iAgent,iThres) = SUM(freqBROffPath(iAgent,:),MASK = cond)/r_num
+                    AvgFlagBRAll(iAgent,iThres) = SUM(FlagBRAll(iAgent,:),MASK = cond)/r_num
+                    AvgFlagBROnPath(iAgent,iThres) = SUM(FlagBROnPath(iAgent,:),MASK = cond)/r_num
+                    AvgFlagBROffPath(iAgent,iThres) = SUM(FlagBROffPath(iAgent,:),MASK = cond)/r_num
+                    !
+                END DO
                 !
             END IF
             !
@@ -300,20 +265,24 @@ CONTAINS
     END DO
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    ! Printing averages and descriptive statistics
+    ! Printing averages 
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     !
     IF (iModel .EQ. 1) THEN
         !
-        WRITE(10004,1) (i, i = 1, numAgents), (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
+        WRITE(10004,1) &
+            (i, i = 1, numAgents), &
+            (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
             (i, i = 1, numDemandParameters), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             (i, i = 1, numAgents), (i, i = 1, numAgents),  &
             (i, i = 1, numAgents), (i, i = 1, numAgents),  &
             ((i, j, j = 1, numPrices), i = 1, numAgents), &
-            (i, i, i, i = 1, numAgents), &
-            (iThres, iThres, iThres, iThres, iThres, (iThres, iAgent, iThres, iAgent, iThres, iAgent, iAgent = 1, numAgents), iThres = 1, numThresPathCycleLength)
-1           FORMAT('Model ', &
+            (iThres, iThres = 0, numThresCycleLength), &
+            ((iThres, i = 1, 12), iThres = 0, numThresCycleLength), &
+            (((iAgent, iThres, i = 1, 6), iThres = 0, numThresCycleLength), &
+                    iAgent = 1, 2)
+1       FORMAT('Model ', &
             <numAgents>('    alpha', I1, ' '), &
             <numExplorationParameters>('     beta', I1, ' '), &
             <numAgents>('    delta', I1, ' '), <numDemandParameters>('  DemPar', I2.2, ' '), &
@@ -321,12 +290,26 @@ CONTAINS
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
             <numAgents>('NashMktSh', I1, ' '), <numAgents>('CoopMktSh', I1, ' '), &
             <numAgents>(<numPrices>('Ag', I1, 'Price', I2.2, ' ')), &
-            'TotNum TotAvgFreqBRAll TotAvgFreqBRPath TotAvgFreqEqAll TotAvgFreqEqPath ', &
-            <numAgents>('Ag', I1, 'Num Ag', I1, 'AvgFreqBRAll Ag', I1, 'AvgFreqBRPath '), &
-            <numThresPathCycleLength>('PathLen', I2.2, 'Num ', &
-                                      'PathLen', I2.2, 'AvgFreqBRAll PathLen', I2.2, 'AvgFreqBRPath ', &
-                                      'PathLen', I2.2, 'AvgFreqEqAll PathLen', I2.2, 'AvgFreqEqPath ', &
-                <numAgents>('PathLen', I2.2, 'Ag', I1, 'Num PathLen', I2.2, 'Ag', I1, 'AvgFreqBRAll PathLen', I2.2, 'Ag', I1, 'AvgFreqBRPath ')) &
+            <numThresCycleLength+1>('num_Len', I2.2, 1X), &
+            <numThresCycleLength+1>('FlagEQAll_Len', I2.2, 1X, &
+                                    'FlagEQOnPath_Len', I2.2, 1X, &
+                                    'FlagEQOffPath_Len', I2.2, 1X, &
+                                    'FreqEQAll_Len', I2.2, 1X, &
+                                    'FreqEQOnPath_Len', I2.2, 1X, &
+                                    'FreqEQOffPath_Len', I2.2, 1X, &
+                                    'FlagBRAll_Ag0_Len', I2.2, 1X, &
+                                    'FlagBROnPath_Ag0_Len', I2.2, 1X, &
+                                    'FlagBROffPath_Ag0_Len', I2.2, 1X, &
+                                    'FreqBRAll_Ag0_Len', I2.2, 1X, &
+                                    'FreqBROnPath_Ag0_Len', I2.2, 1X, &
+                                    'FreqBROffPath_Ag0_Len', I2.2, 1X), &
+            <numAgents>( &
+                <numThresCycleLength+1>('FlagBRAll_Ag', I1.1, '_Len', I2.2, 1X, &
+                                        'FlagBROnPath_Ag', I1.1, '_Len', I2.2, 1X, &
+                                        'FlagBROffPath_Ag', I1.1, '_Len', I2.2, 1X, &
+                                        'FreqBRAll_Ag', I1.1, '_Len', I2.2, 1X, &
+                                        'FreqBROnPath_Ag', I1.1, '_Len', I2.2, 1X, &
+                                        'FreqBROffPath_Ag', I1.1, '_Len', I2.2, 1X)) &
             )
         !
     END IF
@@ -335,23 +318,23 @@ CONTAINS
         alpha, MExpl, delta, DemandParameters, &
         NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
         (PricesGrids(:,i), i = 1, numAgents), &
-        numAgents*numGames, &
-            SUM(freqStatesBRAll)/DBLE(numAgents*numGames), SUM(freqStatesBRPathCycle)/DBLE(numAgents*numGames), &
-            SUM(freqStatesEqAll)/DBLE(numGames), SUM(freqStatesEqPathCycle)/DBLE(numGames), &
-            (numGames, SUM(freqStatesBRAll(iAgent,:))/DBLE(numGames), SUM(freqStatesBRPathCycle(iAgent,:))/DBLE(numGames), iAgent = 1, numAgents), &
-        (numAgents*numPathCycleLength(iThres), &
-            avgFreqStatesBRAll(0,iThres), avgFreqStatesBRPathCycle(0,iThres), &
-            avgFreqStatesEqAll(iThres), avgFreqStatesEqPathCycle(iThres), &
-            (numPathCycleLength(iThres), avgFreqStatesBRAll(iAgent,iThres), avgFreqStatesBRPathCycle(iAgent,iThres), iAgent = 1, numAgents), &
-            iThres = 1, numThresPathCycleLength)
+        (numCycleLength(iThres), iThres = 0, numThresCycleLength), &
+        (AvgFlagEQAll(iThres), AvgFlagEQOnPath(iThres), AvgFlagEQOffPath(iThres), &
+          AvgFreqEQAll(iThres), AvgFreqEQOnPath(iThres), AvgFreqEQOffPath(iThres), &
+          AvgFlagBRAll(0,iThres), AvgFlagBROnPath(0,iThres), AvgFlagBROffPath(0,iThres), &
+          AvgFreqBRAll(0,iThres), AvgFreqBROnPath(0,iThres), AvgFreqBROffPath(0,iThres), &
+            iThres = 0, numThresCycleLength), &
+        ((AvgFlagBRAll(iAgent,iThres), AvgFlagBROnPath(iAgent,iThres), AvgFlagBROffPath(iAgent,iThres), &
+          AvgFreqBRAll(iAgent,iThres), AvgFreqBROnPath(iAgent,iThres), AvgFreqBROffPath(iAgent,iThres), &
+            iThres = 0, numThresCycleLength), &
+                iAgent = 1, 2)
 2   FORMAT(I5, 1X, &
         <3*numAgents+numDemandParameters>(F10.5, 1X), &
         <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
-        (I6, 1X, F15.7, 1X, F16.7, 1X, F15.7, 1X, F16.7, 1X), &
-            <numAgents>(I6, 1X, F15.7, 1X, F16.7, 1X), &
-        <numThresPathCycleLength>(I12, 1X, F21.7, 1X, F22.7, 1X, F21.7, 1X, F22.7, 1X, &
-            <numAgents>(I15, 1X, F24.7, 1X, F25.7, 1X)) &
+        <numThresCycleLength+1>(I9, 1X), &
+        <numThresCycleLength+1>(<2>(F15.7, 1X, F18.7, 1X, F19.7, 1X), <2>(F19.7, 1X, F22.7, 1X, F23.7, 1X)), &
+        <numAgents>(<numThresCycleLength+1>(<2>(F19.7, 1X, F22.7, 1X, F23.7, 1X))) &
         )
     !
     ! Ending execution and returning control
@@ -426,7 +409,157 @@ CONTAINS
     !
     ! Ending execution and returning control
     !
-    END SUBROUTINE computeQcell
+        END SUBROUTINE computeQcell
+!
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    SUBROUTINE computeEqCheckGame ( OptimalStrategy, CycleLengthGame, CycleStatesGame, Slack, &
+        freqBRAll, freqBROnPath, freqBROffPath, freqEQAll, freqEQOnPath, freqEQOffPath, &
+        flagBRAll, flagBROnPath, flagBROffPath, flagEQAll, flagEQOnPath, flagEQOffPath )
+    !
+    ! Computes equilibrium check for an individual replication
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    INTEGER, INTENT(IN) :: OptimalStrategy(numStates,numAgents), CycleLengthGame, CycleStatesGame(CycleLengthGame)
+    REAL(8), INTENT(IN) :: Slack
+    REAL(8), DIMENSION(numAgents), INTENT(OUT) :: freqBRAll, freqBROnPath, freqBROffPath
+    REAL(8), INTENT(OUT) :: freqEQAll, freqEQOnPath, freqEQOffPath
+    INTEGER, DIMENSION(numAgents), INTENT(OUT) :: flagBRAll, flagBROnPath, flagBROffPath
+    INTEGER, INTENT(OUT) :: flagEQAll, flagEQOnPath, flagEQOffPath
+    !
+    ! Declaring local variables
+    !
+    INTEGER :: IsBestReply(numStates,numAgents), iAgent, iState, CycleStates(numStates), &
+        pPrime(numAgents), StrategyPrice, iPrice, VisitedStates(numPeriods), &
+        PreCycleLength, CycleLength, iPeriod, numImprovedPrices, ImprovedPrices(numStates), &
+        numStatesBRAll(numAgents), numStatesBROnPath(numAgents), numStatesBROffPath(numAgents), &
+        numStatesEQAll, numStatesEQOnPath, numStatesEQOffPath
+    REAL(8) :: StateValueFunction(numPrices), MaxStateValueFunction, TestDiff, TestCrit
+    !
+    ! Beginning execution
+    !
+    ! 1. For each agent A and each state S, check whether A is best responding in state S
+    !
+    IsBestReply = 0
+    DO iState = 1, numStates            ! Start of loop over states
+        !
+        ! Compute state value function for OptimalStrategy in iState, for all prices and agents
+        !
+        DO iAgent = 1, numAgents            ! Start of loop over agents
+            !
+            StateValueFunction = 0.d0
+            DO iPrice = 1, numPrices            ! Start of loop over prices to compute a row of Q
+                !
+                CALL computeQcell(OptimalStrategy,iState,iPrice,iAgent,delta, &
+                    StateValueFunction(iPrice),VisitedStates,PreCycleLength,CycleLength,iPeriod)
+                !
+            END DO                              ! End of loop over prices
+            !
+            MaxStateValueFunction = MAXVAL(StateValueFunction)
+            StrategyPrice = OptimalStrategy(iState,iAgent)
+            numImprovedPrices = 0
+            ImprovedPrices = 0
+            DO iPrice = 1, numPrices            ! Start of loop over prices to find optimal price(s)
+                !
+                TestDiff = ABS(StateValueFunction(iPrice)-MaxStateValueFunction)
+                IF (ANY(CycleStatesGame .EQ. iState)) TestCrit = ABS(EPSILON(MaxStateValueFunction))
+                IF (ALL(CycleStatesGame .NE. iState)) THEN
+                    !
+                    IF (Slack .LT. 0.d0) TestCrit = ABS(EPSILON(MaxStateValueFunction))
+                    IF (Slack .GT. 0.d0) TestCrit = ABS(Slack*MaxStateValueFunction)
+                    !
+                END IF
+                IF (TestDiff .LE. TestCrit) THEN
+                    !
+                    numImprovedPrices = numImprovedPrices+1                        
+                    ImprovedPrices(numImprovedPrices) = iPrice
+                    !
+                END IF
+                !
+            END DO                              ! End of loop over prices
+            IF (ANY(ImprovedPrices(:numImprovedPrices) .EQ. StrategyPrice)) IsBestReply(iState,iAgent) = 1
+            !
+        END DO                              ! End of loop over agents
+        !
+    END DO                              ! End of loop over states
+    !
+    ! 2. For each agent A, compute:
+    ! - 1) the TOTAL number of states in which A is best responding (INTEGER)
+    ! - 2) the number of states ON PATH in which A is best responding (INTEGER)
+    ! - 3) the number of states OFF PATH in which A is best responding (INTEGER)
+    ! - 4) whether A is best responding on all states (INTEGER 0/1)
+    ! - 5) whether A is best responding on all states ON PATH (INTEGER 0/1)
+    ! - 6) whether A is best responding on all states OFF PATH (INTEGER 0/1)
+    !
+    numStatesBRAll = 0
+    numStatesBROnPath = 0
+    numStatesBROffPath = 0
+    flagBRAll = 0
+    flagBROnPath = 0
+    flagBROffPath = 0
+    DO iAgent = 1, numAgents
+        !
+        numStatesBRAll(iAgent) = SUM(IsBestReply(:,iAgent))
+        numStatesBROnPath(iAgent) = SUM(IsBestReply(CycleStatesGame,iAgent))
+        numStatesBROffPath(iAgent) = numStatesBRAll(iAgent)-numStatesBROnPath(iAgent)
+        IF (numStatesBRAll(iAgent) .EQ. numStates) flagBRAll(iAgent) = 1
+        IF (numStatesBROnPath(iAgent) .EQ. CycleLengthGame) flagBROnPath(iAgent) = 1
+        IF (numStatesBROffPath(iAgent) .EQ. (numStates-CycleLengthGame)) flagBROffPath(iAgent) = 1
+        !
+    END DO
+    !
+    ! 3. Simultaneously for all agents, compute:
+    ! - 1) the TOTAL number of states in which the agents are best responding (INTEGER)
+    ! - 2) the number of states ON PATH in which the agents are best responding (INTEGER)
+    ! - 3) the number of states OFF PATH in which the agents are best responding (INTEGER)
+    ! - 4) whether the agents are best responding on all states (INTEGER 0/1)
+    ! - 5) whether the agents are best responding on all states ON PATH (INTEGER 0/1)
+    ! - 6) whether the agents are best responding on all states OFF PATH (INTEGER 0/1)
+    !
+    numStatesEQAll = 0
+    numStatesEQOnPath = 0
+    numStatesEQOffPath = 0
+    DO iState = 1, numStates
+        !
+        IF (ALL(IsBestReply(iState,:) .EQ. 1)) THEN
+            !
+            numStatesEQAll = numStatesEQAll+1
+            !
+            IF (ANY(CycleStatesGame .EQ. iState)) THEN
+                !
+                numStatesEQOnPath = numStatesEQOnPath+1
+                !
+            ELSE
+                !
+                numStatesEQOffPath = numStatesEQOffPath+1
+                !
+            END IF
+            !
+        END IF
+        !
+    END DO
+    flagEQAll = 0
+    flagEQOnPath = 0
+    flagEQOffPath = 0
+    IF (numStatesEQAll .EQ. numStates) flagEQAll = 1
+    IF (numStatesEQOnPath .EQ. CycleLengthGame) flagEQOnPath = 1
+    IF (numStatesEQOffPath .EQ. (numStates-CycleLengthGame)) flagEQOffPath = 1
+    !
+    ! 4. Convert number of states into frequencies
+    !
+    freqBRAll = DBLE(numStatesBRAll)/DBLE(numStates)
+    freqBROnPath = DBLE(numStatesBROnPath)/DBLE(CycleLengthGame)
+    freqBROffPath = DBLE(numStatesBROffPath)/DBLE(numStates-CycleLengthGame)
+    freqEQAll = DBLE(numStatesEQAll)/DBLE(numStates)
+    freqEQOnPath = DBLE(numStatesEQOnPath)/DBLE(CycleLengthGame)
+    freqEQOffPath = DBLE(numStatesEQOffPath)/DBLE(numStates-CycleLengthGame)
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE computeEqCheckGame
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

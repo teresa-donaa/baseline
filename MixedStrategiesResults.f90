@@ -30,7 +30,7 @@ CONTAINS
     INTEGER :: CycleLengthGames(numGames), priceCyclesMat(numPeriods,numAgents), &
         PriceCyclesComb(1000,numAgents)
     INTEGER :: idumRS, ivRS(32), iyRS, idum2RS, u
-    REAL(8) :: Profits(numGames,numAgents), visitedProfits(numPeriods,numAgents), AvgProfits(numGames)
+    REAL(8) :: Profits(numGames,numAgents), VisitedProfits(numPeriods,numAgents), AvgProfits(numGames)
     REAL(8), DIMENSION(numAgents) :: meanProfits, seProfit, meanProfitGain, seProfitGain
     REAL(8) :: meanAvgProfit, seAvgProfit, meanAvgProfitGain, seAvgProfitGain
     REAL(8) :: FreqStates(numGames,numStates), meanFreqStates(numStates)
@@ -142,7 +142,7 @@ CONTAINS
         DO iPriceCycle = 1, numPriceCycles
             !
             VisitedStates = 0
-            visitedProfits = 0.d0
+            VisitedProfits = 0.d0
             IF (DepthState0 .EQ. 0) THEN
                 !
                 p = OptimalStrategy
@@ -160,7 +160,7 @@ CONTAINS
                 VisitedStates(iPeriod) = computeStateNumber(p)
                 DO iAgent = 1, numAgents
                     !
-                    visitedProfits(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
+                    VisitedProfits(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
                     !
                 END DO
                 !
@@ -176,7 +176,7 @@ CONTAINS
             !
             CycleLength = iPeriod-MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
             CALL updateVectorAverage(numAgents,iPriceCycle, &
-                SUM(visitedProfits(iPeriod-CycleLength+1:iPeriod,:),DIM = 1)/DBLE(CycleLength),Profits(iGame,:))
+                SUM(VisitedProfits(iPeriod-CycleLength+1:iPeriod,:),DIM = 1)/DBLE(CycleLength),Profits(iGame,:))
             !
         END DO
         !

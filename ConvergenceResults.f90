@@ -29,7 +29,7 @@ CONTAINS
     INTEGER :: VisitedStates(numPeriods), OptimalStrategy(numStates,numAgents), &
         LastObservedPrices(DepthState,numAgents)
     INTEGER :: pHist(numPeriods,numAgents)
-    REAL(8) :: Profits(numGames,numAgents), visitedProfits(numPeriods,numAgents), AvgProfits(numGames)
+    REAL(8) :: Profits(numGames,numAgents), VisitedProfits(numPeriods,numAgents), AvgProfits(numGames)
     REAL(8), DIMENSION(numAgents) :: meanProfits, seProfit, meanProfitGain, seProfitGain
     REAL(8) :: meanAvgProfit, seAvgProfit, meanAvgProfitGain, seAvgProfitGain
     REAL(8) :: FreqStates(numGames,numStates), meanFreqStates(numStates)
@@ -92,7 +92,7 @@ CONTAINS
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         !
         VisitedStates = 0
-        visitedProfits = 0.d0
+        VisitedProfits = 0.d0
         pHist = 0
         p = LastObservedPrices
         pPrime = OptimalStrategy(computeStateNumber(p),:)
@@ -104,7 +104,7 @@ CONTAINS
             VisitedStates(iPeriod) = computeStateNumber(p)
             DO iAgent = 1, numAgents
                 !
-                visitedProfits(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
+                VisitedProfits(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
                 !
             END DO
             !
@@ -119,7 +119,7 @@ CONTAINS
         END DO
         !
         CycleLength = iPeriod-MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
-        Profits(iGame,:) = SUM(visitedProfits(iPeriod-CycleLength+1:iPeriod,:),DIM = 1)/ &
+        Profits(iGame,:) = SUM(VisitedProfits(iPeriod-CycleLength+1:iPeriod,:),DIM = 1)/ &
                 DBLE(CycleLength)
         FreqStates(iGame,VisitedStates(iPeriod-CycleLength+1:iPeriod)) = 1.d0/DBLE(CycleLength)
         !
@@ -127,8 +127,18 @@ CONTAINS
         !
         pHist(:CycleLength,:) = pHist(iPeriod-CycleLength+1:iPeriod,:)
         pHist(CycleLength+1:,:) = 0.d0
-        WRITE(999,211) CycleLength, (pHist(:CycleLength,iAgent), iAgent = 1, numAgents)
-211     FORMAT(I8, 1X, <numAgents>(<CycleLength>(I<lengthFormatActionPrint>,1X)))        
+        VisitedStates(:CycleLength) = VisitedStates(iPeriod-CycleLength+1:iPeriod)
+        VisitedStates(CycleLength+1:) = 0
+        VisitedProfits(:CycleLength,:) = VisitedProfits(iPeriod-CycleLength+1:iPeriod,:)
+        VisitedProfits(CycleLength+1:,:) = 0.d0
+        WRITE(999,211) CycleLength, &
+            VisitedStates(:CycleLength), &
+            (pHist(:CycleLength,iAgent), iAgent = 1, numAgents), &
+            (VisitedProfits(:CycleLength,iAgent), iAgent = 1, numAgents)
+211     FORMAT(I8, 1X, &
+            <CycleLength>(I<lengthStatesPrint>,1X), &
+            <numAgents>(<CycleLength>(I<lengthFormatActionPrint>,1X)), &
+            <numAgents>(<CycleLength>(F8.5, 1X)))
         !
     END DO        ! End of loop over games
     !

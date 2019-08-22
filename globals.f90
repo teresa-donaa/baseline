@@ -17,7 +17,7 @@ INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     itersInPerfMeasPeriod, printQ, printP, codModel, PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
     typeExplorationMechanism, DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
     typePayoffInput, numAgents, numActions, numDemandParameters, numPeriods, &
-    numExplorationParameters, computeQLearningResults, computeConvergenceResults, computePreShockCycles, &
+    numExplorationParameters, computeQLearningResults, computeConvergenceResults, &
     computeImpulseResponseToBR, computeImpulseResponseToNash, computeImpulseResponseToAll, &
     computeDetailedImpulseResponseToAll, &
     computeEquilibriumCheck, computePIGapToMaximum, computeQGapToMaximum, computeRestart
@@ -133,8 +133,6 @@ CONTAINS
     READ(unitNumber,*) computeQLearningResults
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) computeConvergenceResults
-    READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computePreShockCycles
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) computeImpulseResponseToBR
     READ(unitNumber,'(1X)')

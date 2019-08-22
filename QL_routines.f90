@@ -11,7 +11,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE initQMatrices ( iGames, idumQ, ivQ, iyQ, idum2Q, PI, delta, Q, maxValQ, maxLocQ )
+    SUBROUTINE initQMatrices ( iGame, idumQ, ivQ, iyQ, idum2Q, PI, delta, Q, maxValQ, maxLocQ )
     !
     ! Initializing Q matrices
     !
@@ -19,7 +19,7 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
-    INTEGER, INTENT(IN) :: iGames
+    INTEGER, INTENT(IN) :: iGame
     INTEGER, INTENT(INOUT) :: idumQ, ivQ(32), iyQ, idum2Q
     REAL(8), DIMENSION(numActions,numAgents), INTENT(IN) :: PI
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
@@ -66,15 +66,15 @@ CONTAINS
             !
             ! Read Q matrices from file
             !
-            OPEN(UNIT = iGames,FILE = QFileName,READONLY,RECL = 10000,IOSTAT = status)
-            IF (iAgent .GT. 1) READ(iGames,100)
+            OPEN(UNIT = iGame,FILE = QFileName,READONLY,RECL = 10000,IOSTAT = status)
+            IF (iAgent .GT. 1) READ(iGame,100)
 100         FORMAT(<(iAgent-1)*numStates-1>(/))
             DO iState = 1, numStates
                 !
-                READ(iGames,*) Q(iState,:,iAgent)
+                READ(iGame,*) Q(iState,:,iAgent)
                 !
             END DO
-            CLOSE(UNIT = iGames)
+            CLOSE(UNIT = iGame)
             !
         ELSE IF (typeQInitialization(iAgent) .EQ. 'R') THEN
             !

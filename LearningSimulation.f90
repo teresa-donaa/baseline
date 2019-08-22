@@ -35,7 +35,7 @@ CONTAINS
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
     REAL(8) :: u(2), eps(numAgents)
     REAL(8) :: newq, oldq, profitgain
-    INTEGER :: iIters, i, j, h, iGames, iItersInStrategy, convergedGame
+    INTEGER :: iIters, i, j, h, iGame, iItersInStrategy, convergedGame
     INTEGER :: state, statePrime, actionPrime
     INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
@@ -92,9 +92,9 @@ CONTAINS
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
     !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,profitgain,codModelChar) &
     !$omp reduction(+ : printPMat, printPMatQ)
-    DO iGames = 1, numGames
+    DO iGame = 1, numGames
         !
-        PRINT*, 'Game = ', iGames, ' started'
+        PRINT*, 'Game = ', iGame, ' started'
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! Learning phase
@@ -102,12 +102,12 @@ CONTAINS
         !
         ! Initializing random number generators
         !
-        idum = -iGames
+        idum = -iGame
         idum2 = 123456789
         iv = 0
         iy = 0
         !
-        idumQ = -iGames
+        idumQ = -iGame
         idum2Q = 123456789
         ivQ = 0
         iyQ = 0
@@ -115,13 +115,13 @@ CONTAINS
         ! Initializing Q matrices
         !
         !$omp critical
-        CALL initQMatrices(iGames,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
+        CALL initQMatrices(iGame,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
         !$omp end critical
         strategy = strategyPrime
         !
         ! Randomly initializing prices and state
         !
-        CALL initState(uIniPrice(:,:,iGames),p,statePrime,actionPrime)
+        CALL initState(uIniPrice(:,:,iGame),p,statePrime,actionPrime)
         state = statePrime
         !
         ! Loop
@@ -271,35 +271,35 @@ CONTAINS
             !
             ! Open Q matrices output file
             !
-            WRITE(iGamesChar,'(I0.5)') iGames
+            WRITE(iGamesChar,'(I0.5)') iGame
             QFileName = 'Q_' // codModelChar // '_' // iGamesChar // '.txt'
             !
             ! Write on Q matrices to file
             !
-            OPEN(UNIT = iGames,FILE = QFileName,RECL = 10000)
+            OPEN(UNIT = iGame,FILE = QFileName,RECL = 10000)
             DO iAgent = 1, numAgents
                 !
                 DO iState = 1, numStates
                     !
-                    WRITE(iGames,*) Q(iState,:,iAgent)
+                    WRITE(iGame,*) Q(iState,:,iAgent)
                     !
                 END DO
                 !
             END DO
-            CLOSE(UNIT = iGames)
+            CLOSE(UNIT = iGame)
             !
         END IF
         !$omp end critical
         !
         ! Record results at convergence
         !
-        converged(iGames) = convergedGame
-        indexStrategies(:,iGames) = computeStrategyNumber(strategy)
-        indexLastState(:,iGames) = convertNumberBase(state-1,numPrices,LengthStates)
-        timeToConvergence(iGames) = DBLE(iIters-itersInPerfMeasPeriod)/itersPerYear
+        converged(iGame) = convergedGame
+        indexStrategies(:,iGame) = computeStrategyNumber(strategy)
+        indexLastState(:,iGame) = convertNumberBase(state-1,numPrices,LengthStates)
+        timeToConvergence(iGame) = DBLE(iIters-itersInPerfMeasPeriod)/itersPerYear
         !
-        IF (convergedGame .EQ. 1) PRINT*, 'Game = ', iGames, ' converged'
-        IF (convergedGame .EQ. 0) PRINT*, 'Game = ', iGames, ' did not converge'
+        IF (convergedGame .EQ. 1) PRINT*, 'Game = ', iGame, ' converged'
+        IF (convergedGame .EQ. 0) PRINT*, 'Game = ', iGame, ' did not converge'
         !
         ! End of loop over games
         !
@@ -349,10 +349,10 @@ CONTAINS
     CLOSE(UNIT = 996)
     !    
     OPEN(UNIT = 999,FILE = FileNameIndexLastState,STATUS = "REPLACE")
-    DO iGames = 1, numGames
+    DO iGame = 1, numGames
         !
-        WRITE(999,999) indexLastState(:,iGames)
-    999 FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
+        WRITE(999,999) indexLastState(:,iGame), converged(iGame), timeToConvergence(iGame)
+    999 FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X), I3, 1X, ES12.5, 1X)
         !
     END DO
     CLOSE(UNIT = 999)

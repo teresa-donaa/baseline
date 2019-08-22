@@ -25,16 +25,18 @@ CONTAINS
     ! Declaring local variable
     !
     INTEGER, PARAMETER :: numShockPeriodsPrint = 25
-    INTEGER :: PeriodsLengthPre, PeriodsLengthPost, &
+    INTEGER :: PeriodsLengthPre, PunishmentLength, PeriodsLengthPost, &
         VisitedStatesPre(numPeriods), VisitedStates(MAX(numShockPeriodsPrint,numPeriods)), &
-        VisitedStatesTMP(numPeriods), &
+        VisitedStatesTMP(numPeriods), SameCyclePrePost, &
         p(DepthState,numAgents), pPrime(numAgents), &
         iStatePre, iGame, iAgent, jAgent, iPrice, iPeriod, jPeriod, &
         OptimalStrategy(numStates,numAgents), LastObservedPrices(DepthState,numAgents), &
         indexShockState(LengthStates), i, j, PreCycleLength, CycleLength, IndexDynamicBR(numAgents)
 	INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
-    REAL(8) :: IC_Condition, avgIC_Condition
-    REAL(8), DIMENSION(numPeriods,numAgents) :: visitedPrices, visitedProfits, PricesPre, ProfitsPre
+    INTEGER, DIMENSION(numPeriods,numAgents) :: IndPricesPre
+    INTEGER, DIMENSION(numShockPeriodsPrint,numAgents) :: IndPricesShock, &
+        StaticBRIndPrices, DynamicBRIndPrices
+    REAL(8), DIMENSION(numPeriods,numAgents) :: visitedPrices, VisitedProfits, PricesPre, ProfitsPre
     REAL(8), DIMENSION(numShockPeriodsPrint,numAgents) :: PricesShock, ProfitsShock, &
         StaticBRPrices, DynamicBRPrices, OptStratQ, DynamicBRQ
     REAL(8), DIMENSION(numAgents) :: DeviationQ
@@ -68,6 +70,32 @@ CONTAINS
     PRINT*, 'Read indexLastState'
     CLOSE(UNIT = 999)                   ! Close indexLastState file
     !
+    ! Writing header line in global output file
+    !
+    WRITE(100033,11) &
+        (i, i = 1, numAgents), (i, i = 1, numAgents), &
+        (i, i = 1, numAgents), (i, i = 1, numAgents), &
+        (i, i = 1, numAgents), (i, i = 1, numAgents), (i, i = 1, numAgents), &
+        (i, i = 1, numShockPeriodsPrint), (i, i = 1, numShockPeriodsPrint), &
+        (i, i = 1, numShockPeriodsPrint), &
+        (i, i = 1, numShockPeriodsPrint), (i, i = 1, numShockPeriodsPrint), &
+        (i, i = 1, numShockPeriodsPrint), (i, i = 1, numShockPeriodsPrint), &
+        (i, i = 1, numShockPeriodsPrint), (i, i = 1, numShockPeriodsPrint), &
+        (i, i = 1, numAgents), (i, i = 1, numAgents)
+11      FORMAT('    Game  DevTo_Price DevTo_IndPrice ', &
+        <numAgents>(' NashProfit', I1, ' '), <numAgents>(' CoopProfit', I1, ' '), &
+        'PreShock_CycleLength ', &
+        <numAgents>('Avg_Pre_Price', I1, ' '), <numAgents>('Avg_Pre_Profit', I1, ' '), &
+        'PreShock_NumInCycle ', &
+        <numAgents>('PreShock_IndPrice', I1, ' '), <numAgents>('PreShock_Price', I1, ' '), <numAgents>('PreShock_Profit', I1, ' '), &
+        'Shock_Agent Obs_Agent  Deviation_Q PunishmentLength SameCyclePrePost ', &
+        <numShockPeriodsPrint>('Shock_IndPrice', I0.3, ' '), <numShockPeriodsPrint>('Shock_Price', I0.3, ' '), &
+        <numShockPeriodsPrint>('Shock_Profit', I0.3, ' '), &
+        <numShockPeriodsPrint>('StaticBR_IndPrice', I0.3, ' '), <numShockPeriodsPrint>('StaticBR_Price', I0.3, ' '), &
+        <numShockPeriodsPrint>('DynamicBR_IndPrice', I0.3, ' '), <numShockPeriodsPrint>('DynamicBR_Price', I0.3, ' '), &
+        <numShockPeriodsPrint>('OptStrat_Q', I0.3, ' '), <numShockPeriodsPrint>('DynamicBR_Q', I0.3, ' '), &
+        'PostShock_CycleLength ', <numAgents>('Avg_Post_Price', I1, ' '), <numAgents>('Avg_Post_Profit', I1, ' '))
+    !
     ! Beginning loop over deviation prices
     !
     DO iPrice = 1, numPrices    ! Start of loop over possible deviations
@@ -80,22 +108,29 @@ CONTAINS
         FileName = "IR_DevToPrice_" // iPriceChar // ".txt"
         OPEN(UNIT = 100,FILE = FileName)
         !
-        ! Writing header line in output file
+        ! Writing header line in separate deviation prices output files
         !
-        WRITE(100,1) (i, i = 1, numAgents), (i, i = 1, numAgents), &
+        WRITE(100,1) &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numShockPeriodsPrint), (i, i = 1, numShockPeriodsPrint), &
+            (i, i = 1, numShockPeriodsPrint), &
             (i, i = 1, numShockPeriodsPrint), (i, i = 1, numShockPeriodsPrint), &
             (i, i = 1, numShockPeriodsPrint), (i, i = 1, numShockPeriodsPrint), &
             (i, i = 1, numShockPeriodsPrint), (i, i = 1, numShockPeriodsPrint), &
             (i, i = 1, numAgents), (i, i = 1, numAgents)
-1           FORMAT('    Game ', &
+1       FORMAT('    Game ', &
             <numAgents>(' NashProfit', I1, ' '), <numAgents>(' CoopProfit', I1, ' '), &
-            'PreShock_CycleLength ', <numAgents>('Avg_Pre_Price', I1, ' '), <numAgents>('Avg_Pre_Profit', I1, ' '), 'PreShock_NumInCycle ', &
-            <numAgents>('PreShock_Price', I1, ' '), <numAgents>('PreShock_Profit', I1, ' '), &
-            'Shock_Agent Obs_Agent  Deviation_Q ', &
-            <numShockPeriodsPrint>('Shock_Price', I0.3, ' '), <numShockPeriodsPrint>('Shock_Profit', I0.3, ' '), &
-            <numShockPeriodsPrint>('StaticBR_Price', I0.3, ' '), <numShockPeriodsPrint>('DynamicBR_Price', I0.3, ' '), &
+            'PreShock_CycleLength ', &
+            <numAgents>('Avg_Pre_Price', I1, ' '), <numAgents>('Avg_Pre_Profit', I1, ' '), &
+            'PreShock_NumInCycle ', &
+            <numAgents>('PreShock_IndPrice', I1, ' '), <numAgents>('PreShock_Price', I1, ' '), <numAgents>('PreShock_Profit', I1, ' '), &
+            'Shock_Agent Obs_Agent  Deviation_Q PunishmentLength SameCyclePrePost ', &
+            <numShockPeriodsPrint>('Shock_IndPrice', I0.3, ' '), <numShockPeriodsPrint>('Shock_Price', I0.3, ' '), &
+            <numShockPeriodsPrint>('Shock_Profit', I0.3, ' '), &
+            <numShockPeriodsPrint>('StaticBR_IndPrice', I0.3, ' '), <numShockPeriodsPrint>('StaticBR_Price', I0.3, ' '), &
+            <numShockPeriodsPrint>('DynamicBR_IndPrice', I0.3, ' '), <numShockPeriodsPrint>('DynamicBR_Price', I0.3, ' '), &
             <numShockPeriodsPrint>('OptStrat_Q', I0.3, ' '), <numShockPeriodsPrint>('DynamicBR_Q', I0.3, ' '), &
             'PostShock_CycleLength ', <numAgents>('Avg_Post_Price', I1, ' '), <numAgents>('Avg_Post_Profit', I1, ' '))
         !
@@ -138,6 +173,7 @@ CONTAINS
                     !
                     PricesPre(iPeriod,iAgent) = PricesGrids(pPrime(iAgent),iAgent)
                     ProfitsPre(iPeriod,iAgent) = PI(computeActionNumber(pPrime),iAgent)
+                    IndPricesPre(iPeriod,iAgent) = pPrime(iAgent)
                     !
                 END DO
                 !
@@ -160,6 +196,8 @@ CONTAINS
             PricesPre(PeriodsLengthPre+1:,:) = 0.d0
             ProfitsPre(:PeriodsLengthPre,:) = ProfitsPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
             ProfitsPre(PeriodsLengthPre+1:,:) = 0.d0
+            IndPricesPre(:PeriodsLengthPre,:) = IndPricesPre(iPeriod-PeriodsLengthPre+1:iPeriod,:)
+            IndPricesPre(PeriodsLengthPre+1:,:) = 0.d0
             avgPricesPre = SUM(PricesPre(:PeriodsLengthPre,:),DIM = 1)/DBLE(PeriodsLengthPre)
             avgProfitsPre = SUM(ProfitsPre(:PeriodsLengthPre,:),DIM = 1)/DBLE(PeriodsLengthPre)
             !
@@ -175,6 +213,9 @@ CONTAINS
                     ProfitsShock = 0.d0
                     StaticBRPrices = 0.d0
                     DynamicBRPrices = 0.d0
+                    IndPricesShock = 0
+                    StaticBRIndPrices = 0
+                    DynamicBRIndPrices = 0
                     OptStratQ = 0.d0
                     DynamicBRQ = 0.d0
                     DeviationQ = 0.d0
@@ -190,6 +231,7 @@ CONTAINS
                         !
                         CALL ComputeDynamicBestResponse(OptimalStrategy,VisitedStatesPre(iStatePre),jAgent,delta, &
                             IndexDynamicBR(jAgent),DynamicBRQ(1,jAgent))
+                        DynamicBRIndPrices(1,jAgent) = IndexDynamicBR(jAgent)
                         !
                     END DO
                     !
@@ -226,10 +268,11 @@ CONTAINS
                             !
                             IF (iPeriod .LE. numShockPeriodsPrint) THEN
                                 !
+                                indPricesShock(iPeriod,jAgent) = pPrime(jAgent)
                                 PricesShock(iPeriod,jAgent) = PricesGrids(pPrime(jAgent),jAgent)
                                 ProfitsShock(iPeriod,jAgent) = PI(computeActionNumber(pPrime),jAgent)
-                                StaticBRPrices(iPeriod,jAgent) = &
-                                    PricesGrids(ComputeStaticBestResponse(jAgent,p,PI(:,jAgent)),jAgent)
+                                StaticBRIndPrices(iPeriod,jAgent) = ComputeStaticBestResponse(jAgent,p,PI(:,jAgent))
+                                StaticBRPrices(iPeriod,jAgent) = PricesGrids(StaticBRIndPrices(iPeriod,jAgent),jAgent)
                                 IF (iPeriod .GE. 2) THEN
                                     !
                                     ! pPrime and Q computed from Dynamic Best Reply
@@ -243,8 +286,8 @@ CONTAINS
                                         OptStratQ(iPeriod,jAgent),VisitedStatesTMP,PreCycleLength,CycleLength,jPeriod)                                !
                                     !
                                 END IF
-                                DynamicBRPrices(iPeriod,jAgent) = &
-                                    PricesGrids(IndexDynamicBR(jAgent),jAgent)
+                                DynamicBRIndPrices(iPeriod,jAgent) = IndexDynamicBR(jAgent)
+                                DynamicBRPrices(iPeriod,jAgent) = PricesGrids(IndexDynamicBR(jAgent),jAgent)
                                 !
                             END IF
                             !
@@ -258,6 +301,8 @@ CONTAINS
                             (ANY(VisitedStatesPre(:PeriodsLengthPre) .EQ. VisitedStates(iPeriod)))) THEN
                             !
                             indexShockState = RESHAPE(p,(/ LengthStates /))
+                            PunishmentLength = MAX(0,iPeriod-2)
+                            SameCyclePrePost = 1
                             flagReturnedToState = .TRUE.
                             !
                         END IF
@@ -268,6 +313,9 @@ CONTAINS
                             (ANY(VisitedStates(:iPeriod-1) .EQ. VisitedStates(iPeriod)))) THEN
                             !
                             indexShockState = RESHAPE(p,(/ LengthStates /))
+                            PunishmentLength = &
+                                iPeriod-MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
+                            SameCyclePrePost = 0
                             flagReturnedToState = .TRUE.
                             !
                         END IF
@@ -280,7 +328,7 @@ CONTAINS
                     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                     !
                     visitedPrices = 0.d0
-                    visitedProfits = 0.d0
+                    VisitedProfits = 0.d0
                     VisitedStates = 0
                     p = RESHAPE(indexShockState, (/ DepthState,numAgents /) )
                     pPrime = OptimalStrategy(computeStateNumber(p),:)
@@ -293,7 +341,7 @@ CONTAINS
                         DO jAgent = 1, numAgents
                             !
                             visitedPrices(iPeriod,jAgent) = PricesGrids(pPrime(jAgent),jAgent)
-                            visitedProfits(iPeriod,jAgent) = PI(computeActionNumber(pPrime),jAgent)
+                            VisitedProfits(iPeriod,jAgent) = PI(computeActionNumber(pPrime),jAgent)
                             !
                         END DO
                         !
@@ -311,27 +359,64 @@ CONTAINS
                         iPeriod-MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
                     avgPricesPost = SUM(visitedPrices(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
                             DBLE(PeriodsLengthPost)
-                    avgProfitsPost = SUM(visitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
+                    avgProfitsPost = SUM(VisitedProfits(iPeriod-PeriodsLengthPost+1:iPeriod,:),DIM = 1)/ &
                         DBLE(PeriodsLengthPost)
                     !
-                    ! Printing results in output file
+                    ! Printing results to output files
                     !
                     DO jAgent = 1, numAgents    ! Start of loop over observed agent
                         !
-                        IC_Condition = SUM(ProfitsShock(:,jAgent))-numShockPeriodsPrint*ProfitsPre(iStatePre,jAgent)
-                        avgIC_Condition = SUM(ProfitsShock(:,jAgent))-numShockPeriodsPrint*avgProfitsPre(jAgent)
-                        WRITE(100,2) iGame, NashProfits, CoopProfits, &
-                            PeriodsLengthPre, avgPricesPre, avgProfitsPre, iStatePre, PricesPre(iStatePre,:), ProfitsPre(iStatePre,:), &
-                            iAgent, jAgent, DeviationQ(jAgent), &
-                            PricesShock(:,jAgent), ProfitsShock(:,jAgent), &
-                            StaticBRPrices(:,jAgent), DynamicBRPrices(:,jAgent), &
+                        WRITE(100033,12) iGame, PricesGrids(iPrice,iAgent), iPrice, &
+                            NashProfits, CoopProfits, &
+                            PeriodsLengthPre, &
+                            avgPricesPre, avgProfitsPre, &
+                            iStatePre, &
+                            IndPricesPre(iStatePre,:), PricesPre(iStatePre,:), ProfitsPre(iStatePre,:), &
+                            iAgent, jAgent, DeviationQ(jAgent), PunishmentLength, SameCyclePrePost, &
+                            IndPricesShock(:,jAgent), PricesShock(:,jAgent), &
+                            ProfitsShock(:,jAgent), &
+                            StaticBRIndPrices(:,jAgent), StaticBRPrices(:,jAgent), &
+                            DynamicBRIndPrices(:,jAgent), DynamicBRPrices(:,jAgent), &
                             OptStratQ(:,jAgent), DynamicBRQ(:,jAgent), &
                             PeriodsLengthPost, avgPricesPost, avgProfitsPost
-2                       FORMAT(I8, 1X, <2*numAgents>(F12.5, 1X), &
-                            I20, 1X, <numAgents>(F14.5, 1X), <numAgents>(F15.5, 1X), I19, 1X, <numAgents>(F15.5, 1X), <numAgents>(F16.5, 1X), &
-                            I11, 1X, I9, 1X, F12.5, 1X, &
-                            <numShockPeriodsPrint>(F14.5, 1X), <numShockPeriodsPrint>(F15.5, 1X), &
-                            <numShockPeriodsPrint>(F17.5, 1X), <numShockPeriodsPrint>(F18.5, 1X), &
+12                      FORMAT(I8, 1X, F12.5, 1X, I14, 1X, &
+                            <2*numAgents>(F12.5, 1X), &
+                            I20, 1X, &
+                            <numAgents>(F14.5, 1X), <numAgents>(F15.5, 1X), &
+                            I19, 1X, &
+                            <numAgents>(I18, 1X), <numAgents>(F15.5, 1X), <numAgents>(F16.5, 1X), &
+                            I11, 1X, I9, 1X, F12.5, 1X, I16, 1X, I16, 1X, &
+                            <numShockPeriodsPrint>(I17, 1X), <numShockPeriodsPrint>(F14.5, 1X), &
+                            <numShockPeriodsPrint>(F15.5, 1X), &
+                            <numShockPeriodsPrint>(I20, 1X), <numShockPeriodsPrint>(F17.5, 1X), &
+                            <numShockPeriodsPrint>(I21, 1X), <numShockPeriodsPrint>(F18.5, 1X), &
+                            <numShockPeriodsPrint>(F13.5, 1X), <numShockPeriodsPrint>(F14.5, 1X), &
+                            I21, 1X, <numAgents>(F15.5, 1X), <numAgents>(F16.5, 1X))
+                        !
+                        WRITE(100,2) iGame, &
+                            NashProfits, CoopProfits, &
+                            PeriodsLengthPre, &
+                            avgPricesPre, avgProfitsPre, &
+                            iStatePre, &
+                            IndPricesPre(iStatePre,:), PricesPre(iStatePre,:), ProfitsPre(iStatePre,:), &
+                            iAgent, jAgent, DeviationQ(jAgent), PunishmentLength, SameCyclePrePost, &
+                            IndPricesShock(:,jAgent), PricesShock(:,jAgent), &
+                            ProfitsShock(:,jAgent), &
+                            StaticBRIndPrices(:,jAgent), StaticBRPrices(:,jAgent), &
+                            DynamicBRIndPrices(:,jAgent), DynamicBRPrices(:,jAgent), &
+                            OptStratQ(:,jAgent), DynamicBRQ(:,jAgent), &
+                            PeriodsLengthPost, avgPricesPost, avgProfitsPost
+2                       FORMAT(I8, 1X, &
+                            <2*numAgents>(F12.5, 1X), &
+                            I20, 1X, &
+                            <numAgents>(F14.5, 1X), <numAgents>(F15.5, 1X), &
+                            I19, 1X, &
+                            <numAgents>(I18, 1X), <numAgents>(F15.5, 1X), <numAgents>(F16.5, 1X), &
+                            I11, 1X, I9, 1X, F12.5, 1X, I16, 1X, I16, 1X, &
+                            <numShockPeriodsPrint>(I17, 1X), <numShockPeriodsPrint>(F14.5, 1X), &
+                            <numShockPeriodsPrint>(F15.5, 1X), &
+                            <numShockPeriodsPrint>(I20, 1X), <numShockPeriodsPrint>(F17.5, 1X), &
+                            <numShockPeriodsPrint>(I21, 1X), <numShockPeriodsPrint>(F18.5, 1X), &
                             <numShockPeriodsPrint>(F13.5, 1X), <numShockPeriodsPrint>(F14.5, 1X), &
                             I21, 1X, <numAgents>(F15.5, 1X), <numAgents>(F16.5, 1X))
                         !
