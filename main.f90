@@ -9,6 +9,7 @@ USE ImpulseResponseToNash
 USE ImpulseResponseToAll
 USE DetailedImpulseResponseToAll
 USE EquilibriumCheck
+USE DetailedEquilibriumCheck
 USE QGapToMaximum
 USE PIGapToMaximum
 USE MixedStrategiesResults
@@ -91,6 +92,12 @@ IF (computeEquilibriumCheck .EQ. 1) THEN
     !
     FileName = "ec_" // ModelName
     OPEN(UNIT = 10004,FILE = FileName)
+    !
+END IF
+IF (computeDetailedEquilibriumCheck .EQ. 1) THEN
+    !
+    FileName = "det_ec_" // ModelName
+    OPEN(UNIT = 100043,FILE = FileName)
     !
 END IF
 IF (computeQGapToMaximum .EQ. 1) THEN
@@ -197,6 +204,10 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         !
         IF (computeEquilibriumCheck .EQ. 1) CALL computeEqCheck(iModel)
         !
+        ! Detailed EquilibriumCheck analysis 
+        !
+        IF (computeDetailedEquilibriumCheck .EQ. 1) CALL computeDetailedEC(iModel)
+        !
         ! Q and Average PI Gap w.r.t. Maximum
         !
         IF (computeQGapToMaximum .EQ. 1) CALL computeQGapToMax(iModel)
@@ -296,6 +307,7 @@ IF (computeImpulseResponseToBR .EQ. 1) CLOSE(UNIT = 10003)
 IF (computeImpulseResponseToNash .NE. 0) CLOSE(UNIT = 100031)
 IF (computeDetailedImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100033)
 IF (computeEquilibriumCheck .EQ. 1) CLOSE(UNIT = 10004)
+IF (computeDetailedEquilibriumCheck .EQ. 1) CLOSE(UNIT = 100043)
 IF (computeQGapToMaximum .EQ. 1) CLOSE(UNIT = 10006)
 IF (computePIGapToMaximum .EQ. 1) CLOSE(UNIT = 10007)
 !

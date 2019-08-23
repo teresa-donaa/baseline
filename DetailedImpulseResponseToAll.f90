@@ -271,8 +271,8 @@ CONTAINS
                                 indPricesShock(iPeriod,jAgent) = pPrime(jAgent)
                                 PricesShock(iPeriod,jAgent) = PricesGrids(pPrime(jAgent),jAgent)
                                 ProfitsShock(iPeriod,jAgent) = PI(computeActionNumber(pPrime),jAgent)
-                                StaticBRIndPrices(iPeriod,jAgent) = ComputeStaticBestResponse(jAgent,p,PI(:,jAgent))
-                                StaticBRPrices(iPeriod,jAgent) = PricesGrids(StaticBRIndPrices(iPeriod,jAgent),jAgent)
+!@SP                                StaticBRIndPrices(iPeriod,jAgent) = ComputeStaticBestResponse(jAgent,p,PI(:,jAgent))
+!@SP                                StaticBRPrices(iPeriod,jAgent) = PricesGrids(StaticBRIndPrices(iPeriod,jAgent),jAgent)
                                 IF (iPeriod .GE. 2) THEN
                                     !
                                     ! pPrime and Q computed from Dynamic Best Reply
