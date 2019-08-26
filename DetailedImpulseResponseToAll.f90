@@ -2,7 +2,7 @@ MODULE DetailedImpulseResponseToAll
 !
 USE globals
 USE QL_routines
-USE ImpulseResponseToBR
+USE ImpulseResponse
 !
 ! Computes disaggregated Impulse Responses to a one-period deviation to all prices
 !

@@ -4,9 +4,7 @@ USE globals
 USE LearningSimulation
 USE LearningSimulationRestart
 USE ConvergenceResults
-USE ImpulseResponseToBR
-USE ImpulseResponseToNash
-USE ImpulseResponseToAll
+USE ImpulseResponse
 USE DetailedImpulseResponseToAll
 USE EquilibriumCheck
 USE DetailedEquilibriumCheck
@@ -70,34 +68,22 @@ IF (computeImpulseResponseToBR .EQ. 1) THEN
     OPEN(UNIT = 10003,FILE = FileName)
     !
 END IF
-IF (computeImpulseResponseToNash .NE. 0) THEN
+IF (computeImpulseResponseToNash .GE. 1) THEN
     !
     FileName = "irToNash_" // ModelName
     OPEN(UNIT = 100031,FILE = FileName)
     !
 END IF
-IF (computeImpulseResponseToAll .EQ. 1) THEN
+IF (computeImpulseResponseToAll .EQ. 1) THEn
     !
     FileName = "irToAll_" // ModelName
     OPEN(UNIT = 100032,FILE = FileName)
-    !
-END IF
-IF (computeDetailedImpulseResponseToAll .EQ. 1) THEN
-    !
-    FileName = "det_irToAll_" // ModelName
-    OPEN(UNIT = 100033,FILE = FileName)
     !
 END IF
 IF (computeEquilibriumCheck .EQ. 1) THEN
     !
     FileName = "ec_" // ModelName
     OPEN(UNIT = 10004,FILE = FileName)
-    !
-END IF
-IF (computeDetailedEquilibriumCheck .EQ. 1) THEN
-    !
-    FileName = "det_ec_" // ModelName
-    OPEN(UNIT = 100043,FILE = FileName)
     !
 END IF
 IF (computeQGapToMaximum .EQ. 1) THEN
@@ -110,6 +96,18 @@ IF (computePIGapToMaximum .EQ. 1) THEN
     !
     FileName = "pg_" // ModelName
     OPEN(UNIT = 10007,FILE = FileName)
+    !
+END IF
+IF (computeDetailedImpulseResponseToAll .EQ. 1) THEN
+    !
+    FileName = "det_irToAll_" // ModelName
+    OPEN(UNIT = 100033,FILE = FileName)
+    !
+END IF
+IF (computeDetailedEquilibriumCheck .EQ. 1) THEN
+    !
+    FileName = "det_ec_" // ModelName
+    OPEN(UNIT = 100043,FILE = FileName)
     !
 END IF
 labelStates = computeStatesCodePrint()
@@ -186,27 +184,27 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         !
         ! Impulse Response analysis to one-period deviation to static best response
         ! 
-        IF (computeImpulseResponseToBR .EQ. 1) CALL computeIRAnalysisToBR(iModel)
+        IF (computeImpulseResponseToBR .EQ. 1) CALL computeIRAnalysis(iModel,10003,-1)
         !
         ! Impulse Response to a permanent or transitory deviation to Nash prices
         !
-        IF (computeImpulseResponseToNash .NE. 0) CALL computeIRToNashAnalysis(iModel)
+        IF (computeImpulseResponseToNash .GE. 1) CALL computeIRAnalysis(iModel,100031,computeImpulseResponseToNash)
         !
         ! Impulse Response analysis to one-period deviation to all prices
         !
-        IF (computeImpulseResponseToAll .EQ. 1) CALL computeIRToAllAnalysis(iModel)
-        !
-        ! Detailed Impulse Response analysis to one-period deviation to all prices
-        !
-        IF (computeDetailedImpulseResponseToAll .EQ. 1) CALL computeDetailedIRToAll(iModel)
+        IF (computeImpulseResponseToAll .EQ. 1) THEN
+            !
+            DO i = 1, numPrices
+                !
+                CALL computeIRAnalysis(iModel,100032,-i)
+                !
+            END DO
+            !
+        END IF
         !
         ! Equilibrium Check
         !
         IF (computeEquilibriumCheck .EQ. 1) CALL computeEqCheck(iModel)
-        !
-        ! Detailed EquilibriumCheck analysis 
-        !
-        IF (computeDetailedEquilibriumCheck .EQ. 1) CALL computeDetailedEC(iModel)
         !
         ! Q and Average PI Gap w.r.t. Maximum
         !
@@ -215,6 +213,14 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         ! Q and Average PI Gap w.r.t. Maximum
         !
         IF (computePIGapToMaximum .EQ. 1) CALL computeAvgPIGapToMax(iModel)
+        !
+        ! Detailed Impulse Response analysis to one-period deviation to all prices
+        !
+        IF (computeDetailedImpulseResponseToAll .EQ. 1) CALL computeDetailedIRToAll(iModel)
+        !
+        ! Detailed EquilibriumCheck analysis 
+        !
+        IF (computeDetailedEquilibriumCheck .EQ. 1) CALL computeDetailedEC(iModel)
         !
         ! Deallocate arrays
         !
@@ -304,12 +310,13 @@ CLOSE(UNIT = 10001)
 IF (computeQLearningResults .EQ. 1) CLOSE(UNIT = 10002)
 IF (computeConvergenceResults .EQ. 1) CLOSE(UNIT = 100022)
 IF (computeImpulseResponseToBR .EQ. 1) CLOSE(UNIT = 10003)
-IF (computeImpulseResponseToNash .NE. 0) CLOSE(UNIT = 100031)
-IF (computeDetailedImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100033)
+IF (computeImpulseResponseToNash .GE. 1) CLOSE(UNIT = 100031)
+IF (computeImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100032)
 IF (computeEquilibriumCheck .EQ. 1) CLOSE(UNIT = 10004)
-IF (computeDetailedEquilibriumCheck .EQ. 1) CLOSE(UNIT = 100043)
 IF (computeQGapToMaximum .EQ. 1) CLOSE(UNIT = 10006)
 IF (computePIGapToMaximum .EQ. 1) CLOSE(UNIT = 10007)
+IF (computeDetailedImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100033)
+IF (computeDetailedEquilibriumCheck .EQ. 1) CLOSE(UNIT = 100043)
 !
 ! End of execution
 !
