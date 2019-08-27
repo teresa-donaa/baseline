@@ -67,13 +67,15 @@ CONTAINS
         ! Initializing file names
         !
         i = 1+INT(LOG10(DBLE(numModels)))
-        WRITE(ModelNumber, "(I0.<i>, A4)") computeMixedStrategies(iAgent), ".txt"
+        WRITE(ModelNumber, "(I0.<i>, A4)") SwitchMixedStrategies(iAgent), ".txt"
         FileNameIndexStrategies = "indexStrategiesTransposed_" // ModelNumber
         FileNamePriceCycles = "priceCycles_" // ModelNumber
         !
         ! Reading strategies and price cycles at convergence from file
         !
         OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")
+        READ(998,*)     ! Skip 'converged' line
+        READ(998,*)     ! Skip 'timeToConvergence' line
         DO i = 1, lengthStrategies
             !
             IF (MOD(i,10000) .EQ. 0) PRINT*, 'Agent: ', iAgent, ': Read ', i, ' lines of indexStrategies'
@@ -294,7 +296,7 @@ CONTAINS
         <numAgents>(<numPeriodsPrint+1>(' seProfitAg', I1, 'Per', I2.2, ' ')) &
         )
     !
-    WRITE(111,2) computeMixedStrategies, &
+    WRITE(111,2) SwitchMixedStrategies, &
         alpha, MExpl, delta, DemandParameters, &
         NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
         (PricesGrids(:,i), i = 1, numAgents), &

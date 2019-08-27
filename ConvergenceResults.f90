@@ -46,11 +46,14 @@ CONTAINS
     ! Reading strategies and states at convergence from file
     !
     OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")
+    READ(998,*)     ! Skip 'converged' line
+    READ(998,*)     ! Skip 'timeToConvergence' line
+20  FORMAT(//)    
     DO i = 1, lengthStrategies
         !
         IF (MOD(i,10000) .EQ. 0) PRINT*, 'Read ', i, ' lines of indexStrategies'
         READ(998,21) (indexStrategies(i,iGame), iGame = 1, numGames)
-    21  FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
+21      FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
         !
     END DO
     CLOSE(UNIT = 998)                   ! Close indexStrategies file
@@ -59,7 +62,7 @@ CONTAINS
     DO iGame = 1, numGames
         !
         READ(999,22) indexLastState(:,iGame)
-    22  FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
+22      FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
         !
     END DO
     PRINT*, 'Read indexLastState'

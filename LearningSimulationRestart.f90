@@ -414,12 +414,12 @@ CONTAINS
     !
     IF (typeExplorationMechanism .EQ. 1) THEN
         !
-        DO iAgent = 1, numAgents-computeRestart
+        DO iAgent = 1, numAgents-SwitchRestart
             !
             pPrime(iAgent) = strategyPrime(state,iAgent)        ! "Expert" agents do not experiment
             !
         END DO
-        DO iAgent = numAgents-computeRestart+1, numAgents
+        DO iAgent = numAgents-SwitchRestart+1, numAgents
             !
             eps(iAgent) = ExplorationParameters(iAgent)
             u = uExploration(:,iAgent)                          ! "Non-Expert" agents can experiment
@@ -441,12 +441,12 @@ CONTAINS
     !
     IF (typeExplorationMechanism .GE. 2) THEN
         !
-        DO iAgent = 1, numAgents-computeRestart
+        DO iAgent = 1, numAgents-SwitchRestart
             !
             pPrime(iAgent) = strategyPrime(state,iAgent)        ! "Expert" agents do not experiment
             !
         END DO
-        DO iAgent = numAgents-computeRestart+1, numAgents
+        DO iAgent = numAgents-SwitchRestart+1, numAgents
             !
             IF (ExplorationParameters(iAgent) .LT. 0.d0) THEN
                 !
@@ -510,7 +510,7 @@ CONTAINS
     !
     ! Initializing the Q matrix, only for the last agents
     !
-    DO iAgent = numAgents-computeRestart+1, numAgents
+    DO iAgent = numAgents-SwitchRestart+1, numAgents
         !
         IF (typeQInitialization(iAgent) .EQ. 'O') THEN
             !

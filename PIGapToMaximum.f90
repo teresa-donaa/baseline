@@ -70,6 +70,8 @@ CONTAINS
     ! Reading strategies and states at convergence from file
     !
     OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")    ! Open indexStrategies file
+    READ(998,*)     ! Skip 'converged' line
+    READ(998,*)     ! Skip 'timeToConvergence' line
     DO i = 1, lengthStrategies
         !
         IF (MOD(i,10000) .EQ. 0) PRINT*, 'Read ', i, ' lines of indexStrategies'
@@ -143,13 +145,13 @@ CONTAINS
                     ! 1. Compute state value function for the optimal strategy in (iState,iPrice)
                     !
                     CALL computeQcell(OptimalStrategy,iState,iPrice,iAgent,delta, &
-                        QTrue(iState,iPrice,iAgent),VisitedStates,PreCycleLength,CycleLength,iPeriod)
+                        QTrue(iState,iPrice,iAgent),VisitedStates,PreCycleLength,CycleLength)
                     !
                     ! 2. Check if state is on path
                     !
                     IF ((iPrice .EQ. OptimalPrice) .AND. (iState .EQ. lastObservedStateNumber)) THEN
                         !
-                        PathCycleStates(:CycleLength) = VisitedStates(PreCycleLength+1:iPeriod)
+                        PathCycleStates(:CycleLength) = VisitedStates(PreCycleLength+1:PreCycleLength+CycleLength)
                         PathCycleLength(iGame) = CycleLength
                         !
                     END IF

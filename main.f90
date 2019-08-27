@@ -5,11 +5,10 @@ USE LearningSimulation
 USE LearningSimulationRestart
 USE ConvergenceResults
 USE ImpulseResponse
-USE DetailedImpulseResponseToAll
 USE EquilibriumCheck
-USE DetailedEquilibriumCheck
 USE QGapToMaximum
 USE PIGapToMaximum
+USE DetailedAnalysis
 USE MixedStrategiesResults
 USE QL_routines
 USE PI_routines
@@ -50,64 +49,58 @@ DO iAgent = 1, numAgents
     !
 END DO
 !
-IF (computeQLearningResults .EQ. 1) THEN
+IF (SwitchQLearningResults .EQ. 1) THEN
     !
     FileName = "res_" // ModelName
     OPEN(UNIT = 10002,FILE = FileName)
     !
 END IF
-IF (computeConvergenceResults .EQ. 1) THEN
+IF (SwitchConvergenceResults .EQ. 1) THEN
     !
     FileName = "ConvResults_" // ModelName
     OPEN(UNIT = 100022,FILE = FileName)
     !
 END IF
-IF (computeImpulseResponseToBR .EQ. 1) THEN
+IF (SwitchImpulseResponseToBR .EQ. 1) THEN
     !
     FileName = "irToBR_" // ModelName
     OPEN(UNIT = 10003,FILE = FileName)
     !
 END IF
-IF (computeImpulseResponseToNash .GE. 1) THEN
+IF (SwitchImpulseResponseToNash .GE. 1) THEN
     !
     FileName = "irToNash_" // ModelName
     OPEN(UNIT = 100031,FILE = FileName)
     !
 END IF
-IF (computeImpulseResponseToAll .EQ. 1) THEn
+IF (SwitchImpulseResponseToAll .EQ. 1) THEn
     !
     FileName = "irToAll_" // ModelName
     OPEN(UNIT = 100032,FILE = FileName)
     !
 END IF
-IF (computeEquilibriumCheck .EQ. 1) THEN
+IF (SwitchEquilibriumCheck .EQ. 1) THEN
     !
     FileName = "ec_" // ModelName
     OPEN(UNIT = 10004,FILE = FileName)
     !
 END IF
-IF (computeQGapToMaximum .EQ. 1) THEN
+IF (SwitchQGapToMaximum .EQ. 1) THEN
     !
     FileName = "qg_" // ModelName
     OPEN(UNIT = 10006,FILE = FileName)
     !
 END IF
-IF (computePIGapToMaximum .EQ. 1) THEN
+IF (SwitchPIGapToMaximum .EQ. 1) THEN
     !
     FileName = "pg_" // ModelName
     OPEN(UNIT = 10007,FILE = FileName)
     !
 END IF
-IF (computeDetailedImpulseResponseToAll .EQ. 1) THEN
+IF (SwitchDetailedAnalysis .EQ. 1) THEN
     !
-    FileName = "det_irToAll_" // ModelName
+    FileName = "det_" // ModelName
     OPEN(UNIT = 100033,FILE = FileName)
-    !
-END IF
-IF (computeDetailedEquilibriumCheck .EQ. 1) THEN
-    !
-    FileName = "det_ec_" // ModelName
-    OPEN(UNIT = 100043,FILE = FileName)
     !
 END IF
 labelStates = computeStatesCodePrint()
@@ -116,7 +109,7 @@ labelStates = computeStatesCodePrint()
 ! Loop over models
 ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !
-IF (computeMixedStrategies(1) .EQ. 0) THEN
+IF (SwitchMixedStrategies(1) .EQ. 0) THEN
     !
     DO iModel = 1, numModels
         !
@@ -158,14 +151,14 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         !
         ! Compute QL strategy 
         !
-        IF (computeQLearningResults .EQ. 1) THEN
+        IF (SwitchQLearningResults .EQ. 1) THEN
             !
-            IF (computeRestart .EQ. 0) THEN
+            IF (SwitchRestart .EQ. 0) THEN
                 !
                 CALL computeModel(iModel,codModel,alpha,ExplorationParameters,delta, &
                     converged,indexLastState,timeToConvergence)
                 !
-            ELSE IF (computeRestart .EQ. 1) THEN
+            ELSE IF (SwitchRestart .EQ. 1) THEN
                 !
                 CALL computeModelRestart(iModel,codModel,alpha,ExplorationParameters,delta, &
                     converged,indexLastState,timeToConvergence)
@@ -180,19 +173,19 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         !
         ! Results at convergence
         ! 
-        IF (computeConvergenceResults .EQ. 1) CALL ComputeConvResults(iModel)
+        IF (SwitchConvergenceResults .EQ. 1) CALL ComputeConvResults(iModel)
         !
         ! Impulse Response analysis to one-period deviation to static best response
         ! 
-        IF (computeImpulseResponseToBR .EQ. 1) CALL computeIRAnalysis(iModel,10003,-1)
+        IF (SwitchImpulseResponseToBR .EQ. 1) CALL computeIRAnalysis(iModel,10003,-1)
         !
         ! Impulse Response to a permanent or transitory deviation to Nash prices
         !
-        IF (computeImpulseResponseToNash .GE. 1) CALL computeIRAnalysis(iModel,100031,computeImpulseResponseToNash)
+        IF (SwitchImpulseResponseToNash .GE. 1) CALL computeIRAnalysis(iModel,100031,SwitchImpulseResponseToNash)
         !
         ! Impulse Response analysis to one-period deviation to all prices
         !
-        IF (computeImpulseResponseToAll .EQ. 1) THEN
+        IF (SwitchImpulseResponseToAll .EQ. 1) THEN
             !
             DO i = 1, numPrices
                 !
@@ -204,23 +197,19 @@ IF (computeMixedStrategies(1) .EQ. 0) THEN
         !
         ! Equilibrium Check
         !
-        IF (computeEquilibriumCheck .EQ. 1) CALL computeEqCheck(iModel)
+        IF (SwitchEquilibriumCheck .EQ. 1) CALL computeEqCheck(iModel)
         !
         ! Q and Average PI Gap w.r.t. Maximum
         !
-        IF (computeQGapToMaximum .EQ. 1) CALL computeQGapToMax(iModel)
+        IF (SwitchQGapToMaximum .EQ. 1) CALL computeQGapToMax(iModel)
         !
         ! Q and Average PI Gap w.r.t. Maximum
         !
-        IF (computePIGapToMaximum .EQ. 1) CALL computeAvgPIGapToMax(iModel)
+        IF (SwitchPIGapToMaximum .EQ. 1) CALL computeAvgPIGapToMax(iModel)
         !
         ! Detailed Impulse Response analysis to one-period deviation to all prices
         !
-        IF (computeDetailedImpulseResponseToAll .EQ. 1) CALL computeDetailedIRToAll(iModel)
-        !
-        ! Detailed EquilibriumCheck analysis 
-        !
-        IF (computeDetailedEquilibriumCheck .EQ. 1) CALL computeDetailedEC(iModel)
+        IF (SwitchDetailedAnalysis .EQ. 1) CALL ComputeDetailedAnalysis(iModel)
         !
         ! Deallocate arrays
         !
@@ -234,7 +223,7 @@ END IF
 !
 ! Mixed strategies results
 !
-IF (computeMixedStrategies(1) .GT. 0) THEN
+IF (SwitchMixedStrategies(1) .GT. 0) THEN
     !
     ALLOCATE(indexStrategies(lengthStrategies,numGames),priceCycles(numPeriods*numAgents,numGames), &
         sampledIndexStrategies(lengthStrategies,numGames),sampledPriceCycles(numStates+2,numAgents*numGames), &
@@ -249,10 +238,10 @@ IF (computeMixedStrategies(1) .GT. 0) THEN
     DO iAgent = 1, numAgents
         !
         REWIND(UNIT = 100022)
-        IF (computeMixedStrategies(iAgent) .GT. 1) THEN
+        IF (SwitchMixedStrategies(iAgent) .GT. 1) THEN
             !
             READ(100022,2534) 
-2534        FORMAT(<computeMixedStrategies(iAgent)-1+1>(/))
+2534        FORMAT(<SwitchMixedStrategies(iAgent)-1+1>(/))
             BACKSPACE(UNIT = 100022)
             !
         END IF
@@ -264,7 +253,7 @@ IF (computeMixedStrategies(1) .GT. 0) THEN
         MExpl(iAgent) = beta_tmp(iAgent)
         delta(iAgent) = delta_tmp(iAgent)
         !
-        WRITE(ModelNumber, "(I0.<1+INT(LOG10(DBLE(numModels)))>, A4)") computeMixedStrategies(iAgent)
+        WRITE(ModelNumber, "(I0.<1+INT(LOG10(DBLE(numModels)))>, A4)") SwitchMixedStrategies(iAgent)
         FileNameMSR = TRIM(FileNameMSR) // '_'
         FileNameMSR = TRIM(FileNameMSR) // ModelNumber
         !
@@ -307,16 +296,15 @@ CALL closeBatch()
 ! Closing output files
 !
 CLOSE(UNIT = 10001)
-IF (computeQLearningResults .EQ. 1) CLOSE(UNIT = 10002)
-IF (computeConvergenceResults .EQ. 1) CLOSE(UNIT = 100022)
-IF (computeImpulseResponseToBR .EQ. 1) CLOSE(UNIT = 10003)
-IF (computeImpulseResponseToNash .GE. 1) CLOSE(UNIT = 100031)
-IF (computeImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100032)
-IF (computeEquilibriumCheck .EQ. 1) CLOSE(UNIT = 10004)
-IF (computeQGapToMaximum .EQ. 1) CLOSE(UNIT = 10006)
-IF (computePIGapToMaximum .EQ. 1) CLOSE(UNIT = 10007)
-IF (computeDetailedImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100033)
-IF (computeDetailedEquilibriumCheck .EQ. 1) CLOSE(UNIT = 100043)
+IF (SwitchQLearningResults .EQ. 1) CLOSE(UNIT = 10002)
+IF (SwitchConvergenceResults .EQ. 1) CLOSE(UNIT = 100022)
+IF (SwitchImpulseResponseToBR .EQ. 1) CLOSE(UNIT = 10003)
+IF (SwitchImpulseResponseToNash .GE. 1) CLOSE(UNIT = 100031)
+IF (SwitchImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100032)
+IF (SwitchEquilibriumCheck .EQ. 1) CLOSE(UNIT = 10004)
+IF (SwitchQGapToMaximum .EQ. 1) CLOSE(UNIT = 10006)
+IF (SwitchPIGapToMaximum .EQ. 1) CLOSE(UNIT = 10007)
+IF (SwitchDetailedAnalysis .EQ. 1) CLOSE(UNIT = 100033)
 !
 ! End of execution
 !

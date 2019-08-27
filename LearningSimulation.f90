@@ -332,7 +332,7 @@ CONTAINS
                 printPMat(i,numAgents+1:), printPMatQ(i,numAgents+1:)
             !
         END DO
-        991 FORMAT(I10, 1X, <4*numAgents>(F12.5,1X))
+991     FORMAT(I10, 1X, <4*numAgents>(F12.5,1X))
         CLOSE(UNIT = 991)
         !
     END IF
@@ -340,10 +340,14 @@ CONTAINS
     ! Print indexStrategies and indexLastState to file
     !
     OPEN(UNIT = 996,FILE = FileNameIndexStrategies,STATUS = "REPLACE")
+    WRITE(996,992) converged
+992 FORMAT(<numGames>(I1, 1X))
+    WRITE(996,993) timeToConvergence
+993 FORMAT(<numGames>(F9.2, 1X))        
     DO i = 1, lengthStrategies
         !
         WRITE(996,996) indexStrategies(i,:)
-    996 FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
+996     FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
         !
     END DO
     CLOSE(UNIT = 996)
@@ -352,7 +356,7 @@ CONTAINS
     DO iGame = 1, numGames
         !
         WRITE(999,999) indexLastState(:,iGame), converged(iGame), timeToConvergence(iGame)
-    999 FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X), I3, 1X, ES12.5, 1X)
+999     FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X), I3, 1X, ES12.5, 1X)
         !
     END DO
     CLOSE(UNIT = 999)

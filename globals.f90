@@ -8,6 +8,10 @@ IMPLICIT NONE
 !
 ! Parameters
 !
+INTEGER, PARAMETER :: numShockPeriodsPrint = 25
+INTEGER, PARAMETER :: numThresCycleLength = 10
+!
+REAL(8), PARAMETER :: SlackOffPath = 0.05d0
 REAL(8), PARAMETER :: twoOverPi = 0.636619772367581343075535053490d0    ! 2/Pi
 REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
 !
@@ -17,17 +21,16 @@ INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     itersInPerfMeasPeriod, printQ, printP, codModel, PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
     typeExplorationMechanism, DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
     typePayoffInput, numAgents, numActions, numDemandParameters, numPeriods, &
-    numExplorationParameters, computeQLearningResults, computeConvergenceResults, &
-    computeImpulseResponseToBR, computeImpulseResponseToNash, computeImpulseResponseToAll, &
-    computeDetailedImpulseResponseToAll, computeDetailedEquilibriumCheck, &
-    computeEquilibriumCheck, computePIGapToMaximum, computeQGapToMaximum, computeRestart
+    numExplorationParameters, SwitchQLearningResults, SwitchConvergenceResults, &
+    SwitchImpulseResponseToBR, SwitchImpulseResponseToNash, SwitchImpulseResponseToAll, &
+    SwitchEquilibriumCheck, SwitchPIGapToMaximum, SwitchQGapToMaximum, SwitchDetailedAnalysis, SwitchRestart
 REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit, gammaSinghVives
 CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastState, FileNamePriceCycles
 !
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
     indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
-    computeMixedStrategies(:), QMatrixInitializationT(:)
+    SwitchMixedStrategies(:), QMatrixInitializationT(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     maxValQ(:,:), NashPrices(:), CoopPrices(:), &
     PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), DiscountFactors(:,:), & 
@@ -94,7 +97,7 @@ CONTAINS
                                         ! they coincide with states when DepthState == 1
     lengthStrategies = numAgents*numStates
     lengthFormatActionPrint = FLOOR(LOG10(DBLE(numPrices)))+1
-    ALLOCATE(computeMixedStrategies(numAgents))
+    ALLOCATE(SwitchMixedStrategies(numAgents))
     READ(unitNumber,'(1X)')
     !
     ! Read type of exploration mechanism
@@ -130,29 +133,27 @@ CONTAINS
     !
     ! Continue reading input settings
     !
-    READ(unitNumber,*) computeQLearningResults
+    READ(unitNumber,*) SwitchQLearningResults
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeConvergenceResults
+    READ(unitNumber,*) SwitchConvergenceResults
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeImpulseResponseToBR
+    READ(unitNumber,*) SwitchImpulseResponseToBR
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeImpulseResponseToNash
+    READ(unitNumber,*) SwitchImpulseResponseToNash
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeImpulseResponseToAll
+    READ(unitNumber,*) SwitchImpulseResponseToAll
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeDetailedImpulseResponseToAll
+    READ(unitNumber,*) SwitchEquilibriumCheck
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeDetailedEquilibriumCheck
+    READ(unitNumber,*) SwitchQGapToMaximum
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeEquilibriumCheck
+    READ(unitNumber,*) SwitchPIGapToMaximum
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeQGapToMaximum
+    READ(unitNumber,*) SwitchDetailedAnalysis
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computePIGapToMaximum
+    READ(unitNumber,*) SwitchRestart
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeRestart
-    READ(unitNumber,'(1X)')
-    READ(unitNumber,*) computeMixedStrategies
+    READ(unitNumber,*) SwitchMixedStrategies
     READ(unitNumber,'(1X)')
     !
     ! Allocating matrices and vectors
@@ -202,7 +203,7 @@ CONTAINS
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
-        computeMixedStrategies,typeQInitialization,QMatrixInitializationR,QMatrixInitializationU, &
+        SwitchMixedStrategies,typeQInitialization,QMatrixInitializationR,QMatrixInitializationU, &
         QMatrixInitializationT)
     !
     ! Ending execution and returning control

@@ -23,9 +23,6 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    INTEGER, PARAMETER :: numThresCycleLength = 10
-    REAL(8), PARAMETER :: SlackOffPath = 0.05d0
-    !
     INTEGER :: iGame, iAgent, iThres, i, j, &
         OptimalStrategyVec(lengthStrategies), OptimalStrategy(numStates,numAgents), &
         CycleStates(numPeriods,numGames), CycleStatesGame(numPeriods), &
@@ -60,6 +57,8 @@ CONTAINS
     ! Reading strategies and states at convergence from file
     !
     OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")    ! Open indexStrategies txt file
+    READ(998,*)     ! Skip 'converged' line
+    READ(998,*)     ! Skip 'timeToConvergence' line
     DO i = 1, lengthStrategies
         !
         IF (MOD(i,10000) .EQ. 0) PRINT*, 'Read ', i, ' lines of indexStrategies'
@@ -344,9 +343,24 @@ CONTAINS
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
     SUBROUTINE computeQCell ( OptimalStrategy, iState, iPrice, iAgent, delta, &
-        QCell, VisitedStates, PreCycleLength, CycleLength, iPeriod )
+        QCell, VisitedStates, PreCycleLength, CycleLength )
     !
     ! Computes a cell of the 'true' (i.e., theoretical) Q matrix
+    !
+    ! INPUT:
+    !
+    ! - OptimalStrategy     : strategy for all agents
+    ! - iState              : current state
+    ! - iPrice              : price (i.e., action) index
+    ! - iAgent              : agent index
+    ! - delta               : discount factors
+    !
+    ! OUTPUT:
+    !
+    ! - QCell               : 'theoretical'/'true' Q(iState,iPrice,iAgent)
+    ! - VisitedStates       : numPeriods array of states visited (0 after start of cycling)
+    ! - PreCycleLength      : number of periods in the pre-cycle phase
+    ! - CycleLength         : number of periods in the cycle phase
     !
     IMPLICIT NONE
     !
@@ -359,11 +373,11 @@ CONTAINS
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
     REAL(8), INTENT(OUT) :: QCell
     INTEGER, DIMENSION(numPeriods), INTENT(OUT) :: VisitedStates
-    INTEGER, INTENT(OUT) :: PreCycleLength, CycleLength, iPeriod
+    INTEGER, INTENT(OUT) :: PreCycleLength, CycleLength
     !
     ! Declaring local variable
     !
-    INTEGER :: p(DepthState,numAgents), pPrime(numAgents)
+    INTEGER :: iPeriod, p(DepthState,numAgents), pPrime(numAgents)
     REAL(8) :: VisitedProfits(numPeriods), PreCycleProfit, CycleProfit
     !
     ! Beginning execution
@@ -409,7 +423,7 @@ CONTAINS
     !
     ! Ending execution and returning control
     !
-        END SUBROUTINE computeQcell
+    END SUBROUTINE computeQcell
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
@@ -418,6 +432,28 @@ CONTAINS
         flagBRAll, flagBROnPath, flagBROffPath, flagEQAll, flagEQOnPath, flagEQOffPath )
     !
     ! Computes equilibrium check for an individual replication
+    !
+    ! INPUT:
+    !
+    ! - OptimalStrategy     : strategy for all agents
+    ! - CycleLengthGame     : length of the replication's path (i.e., state cycle)
+    ! - CycleStatesGame     : replication's path (i.e., state cycle)
+    ! - Slack               : slack allowed in Q cells in off-path states
+    !
+    ! OUTPUT:
+    !
+    ! - freqBRAll           : % of all states in which at least one agent is best responding
+    ! - freqBROnPath        : % of on path states in which at least one agent is best responding
+    ! - freqBROffPath       : % of off path states in which at least one agent is best responding
+    ! - freqEQAll           : % of all states in which at all agents are best responding
+    ! - freqEQOnPath        : % of on path states in which at all agents are best responding
+    ! - freqEQOffPath       : % of off path states in which at all agents are best responding
+    ! - flagBRAll           : = 1: in all states at least one agent is best responding
+    ! - flagBROnPath        : = 1: in all on path states at least one agent is best responding
+    ! - flagBROffPath       : = 1: in all off path states at least one agent is best responding
+    ! - flagEQAll           : = 1: in all states both agents are best responding
+    ! - flagEQOnPath        : = 1: in all on path states both agents are best responding
+    ! - flagEQOffPath       : = 1: in all off path states both agents are best responding
     !
     IMPLICIT NONE
     !
@@ -454,7 +490,7 @@ CONTAINS
             DO iPrice = 1, numPrices            ! Start of loop over prices to compute a row of Q
                 !
                 CALL computeQcell(OptimalStrategy,iState,iPrice,iAgent,delta, &
-                    StateValueFunction(iPrice),VisitedStates,PreCycleLength,CycleLength,iPeriod)
+                    StateValueFunction(iPrice),VisitedStates,PreCycleLength,CycleLength)
                 !
             END DO                              ! End of loop over prices
             !
@@ -560,6 +596,90 @@ CONTAINS
     ! Ending execution and returning control
     !
     END SUBROUTINE computeEqCheckGame
+!
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    SUBROUTINE ImprovePolicy ( OldStrategy, NewStrategy, numImprovements )
+    !
+    ! Computes equilibrium check for an individual replication
+    !
+    ! INPUT:
+    !
+    ! - OldStrategy         : initial strategy for all agents
+    !
+    ! OUTPUT:
+    !
+    ! - NewStrategy         : improved strategy for all agents
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    INTEGER, INTENT(IN) :: OldStrategy(numStates,numAgents)
+    INTEGER, INTENT(OUT) :: NewStrategy(numStates,numAgents)
+    INTEGER, INTENT(OUT) :: numImprovements
+    !
+    ! Declaring local variables
+    !
+    INTEGER :: iAgent, iState, StrategyPrice, iPrice, VisitedStates(numPeriods), &
+        PreCycleLength, CycleLength, iPeriod, numImprovedPrices, ImprovedPrices(numStates), &
+        numStatesBRAll(numAgents), numStatesBROnPath(numAgents), numStatesBROffPath(numAgents), &
+        numStatesEQAll, numStatesEQOnPath, numStatesEQOffPath
+    REAL(8) :: StateValueFunction(numPrices), MaxStateValueFunction, TestDiff, TestCrit
+    !
+    ! Beginning execution
+    !
+    ! For each agent A and each state S, find the optimal price
+    !
+    numImprovements = 0
+    DO iState = 1, numStates            ! Start of loop over states
+        !
+        ! Compute state value function for OptimalStrategy in iState, for all prices and agents
+        !
+        DO iAgent = 1, numAgents            ! Start of loop over agents
+            !
+            StateValueFunction = 0.d0
+            DO iPrice = 1, numPrices            ! Start of loop over prices to compute a row of Q
+                !
+                CALL computeQcell(OldStrategy,iState,iPrice,iAgent,delta, &
+                    StateValueFunction(iPrice),VisitedStates,PreCycleLength,CycleLength)
+                !
+            END DO                              ! End of loop over prices to compute a row of Q
+            !
+            MaxStateValueFunction = MAXVAL(StateValueFunction)
+            numImprovedPrices = 0
+            ImprovedPrices = 0
+            DO iPrice = 1, numPrices            ! Start of loop over prices to find optimal price(s)
+                !
+                TestDiff = ABS(StateValueFunction(iPrice)-MaxStateValueFunction)
+                IF (TestDiff .LE. TestCrit) THEN
+                    !
+                    numImprovedPrices = numImprovedPrices+1                        
+                    ImprovedPrices(numImprovedPrices) = iPrice
+                    !
+                END IF
+                !
+            END DO                              ! End of loop over prices to find optimal price(s)
+            !
+            StrategyPrice = OldStrategy(iState,iAgent)
+            IF (ANY(MAXLOC(ImprovedPrices(:numImprovedPrices)) .EQ. StrategyPrice)) THEN
+                !
+                NewStrategy(iState,iAgent) = OldStrategy(iState,iAgent)
+                !
+            ELSE
+                !
+                numImprovements = numImprovements+1
+                NewStrategy(iState,iAgent) = MINVAL(MAXLOC(StateValueFunction))
+                !
+            END IF
+            !
+        END DO                              ! End of loop over agents
+        !
+    END DO                              ! End of loop over states
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE ImprovePolicy
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
