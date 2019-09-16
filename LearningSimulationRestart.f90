@@ -151,8 +151,6 @@ CONTAINS
                     !
                     CALL MaxLocBreakTies(numPrices,Q(state,:,iAgent),idumQ,ivQ,iyQ,idum2Q, &
                         maxValQ(state,iAgent),strategyPrime(state,iAgent))
-!@SP                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
-!@SP                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
                     !
                 END IF
                 !
@@ -282,8 +280,6 @@ CONTAINS
                     !
                     CALL MaxLocBreakTies(numPrices,Q(state,:,iAgent),idumQ,ivQ,iyQ,idum2Q, &
                         maxValQ(state,iAgent),strategyPrime(state,iAgent))
-!@SP                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
-!@SP                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
                     !
                 END IF
                 !
@@ -586,8 +582,6 @@ CONTAINS
         END DO
         !
     END DO
-!@SP    maxValQ = MAXVAL(Q,DIM = 2)
-!@SP    maxLocQ = MAXLOC(Q,DIM = 2)
     !
     ! Ending execution and returning control
     !

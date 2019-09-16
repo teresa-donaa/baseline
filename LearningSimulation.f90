@@ -31,20 +31,22 @@ CONTAINS
     ! Declaring local variable
     !
     INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2, idumQ, ivQ(32), iyQ, idum2Q
-    REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
-    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
-    REAL(8) :: u(2), eps(numAgents)
-    REAL(8) :: newq, oldq, profitgain
     INTEGER :: iIters, i, j, h, iGame, iItersInStrategy, convergedGame
     INTEGER :: state, statePrime, actionPrime
     INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies
+    INTEGER, DIMENSION(0:itersPerYear) :: countPMat
+    REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
+    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
+    REAL(8) :: u(2), eps(numAgents)
+    REAL(8) :: newq, oldq, profitgain
+    REAL(8), DIMENSION(0:itersPerYear,2*numAgents) :: printPMat, printPMatQ
+    REAL(8), DIMENSION(2*numAgents) :: RowPMat, RowPMatQ
     CHARACTER(len = 25) :: QFileName
     CHARACTER(len = 5) :: iGamesChar
     CHARACTER(len = 5) :: codModelChar
-    REAL(8), ALLOCATABLE :: printPMat(:,:), printPMatQ(:,:)
     CHARACTER(len = 200) :: PTrajectoryFileName
     !
     ! Beginning execution
@@ -61,10 +63,9 @@ CONTAINS
     !
     IF (printP .GT. 0) THEN
         !
-        ALLOCATE(printPMat(0:itersPerYear,2*numAgents))    ! [Iterations, (Prices and Profits)]
-        ALLOCATE(printPMatQ(0:itersPerYear,2*numAgents))  
         printPMat = 0.d0
         printPMatQ = 0.d0
+        countPMat = 0
         !
     END IF
     !
@@ -88,10 +89,10 @@ CONTAINS
     !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy,convergedGame, &
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
-    !$omp   QFileName,iGamesChar) &
+    !$omp   QFileName,iGamesChar,RowPMat,RowPMatQ) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
     !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,profitgain,codModelChar) &
-    !$omp reduction(+ : printPMat, printPMatQ)
+    !$omp reduction(+ : printPMat,printPMatQ,countPMat)
     DO iGame = 1, numGames
         !
         PRINT*, 'Game = ', iGame, ' started'
@@ -141,6 +142,9 @@ CONTAINS
                 printPMatQ(iIters,numAgents+iAgent) = printPMatQ(iIters,numAgents+iAgent)+profitgain**2
                 !
             END DO
+            countPMat(iIters) = countPMat(iIters)+1
+            RowPMat = 0.d0
+            RowPMatQ = 0.d0
             !
         END IF
         !
@@ -167,19 +171,27 @@ CONTAINS
             !
             ! Store PTrajectories
             !
-            IF ((printP .GT. 0) .AND. (iIters .LE. itersPerYear*printP) .AND. (MOD(iIters,printP) .EQ. 0)) THEN
+            IF ((printP .GT. 0) .AND. (iIters .LE. itersPerYear*printP)) THEN
                 !
                 DO iAgent = 1, numAgents
                     !
-                    printPMat(iIters/printP,iAgent) = printPMat(iIters/printP,iAgent)+ &    
-                        PricesGrids(pPrime(iAgent),iAgent)
+                    RowPMat(iAgent) = RowPMat(iAgent)+PricesGrids(pPrime(iAgent),iAgent)
                     profitgain = (PI(actionPrime,iAgent)-NashProfits(iAgent))/(CoopProfits(iAgent)-NashProfits(iAgent))
-                    printPMat(iIters/printP,numAgents+iAgent) = printPMat(iIters/printP,numAgents+iAgent)+profitgain
-                    printPMatQ(iIters/printP,iAgent) = printPMatQ(iIters/printP,iAgent)+ &
-                        PricesGrids(p(1,iAgent),iAgent)**2
-                    printPMatQ(iIters/printP,numAgents+iAgent) = printPMatQ(iIters/printP,numAgents+iAgent)+profitgain**2
+                    RowPMat(numAgents+iAgent) = RowPMat(numAgents+iAgent)+profitgain
+                    RowPMatQ(iAgent) = RowPMatQ(iAgent)+PricesGrids(p(1,iAgent),iAgent)**2
+                    RowPMatQ(numAgents+iAgent) = RowPMatQ(numAgents+iAgent)+profitgain**2
                     !
                 END DO
+                !
+                IF (MOD(iIters,printP) .EQ. 0) THEN
+                    !
+                    printPMat(iIters/printP,:) = printPMat(iIters/printP,:)+RowPMat/DBLE(printP)
+                    printPMatQ(iIters/printP,:) = printPMatQ(iIters/printP,:)+RowPMatQ/DBLE(printP)
+                    countPMat(iIters/printP) = countPMat(iIters/printP)+1
+                    RowPMat = 0.d0
+                    RowPMatQ = 0.d0
+                    !
+                END IF
                 !
             END IF
             !
@@ -202,8 +214,6 @@ CONTAINS
                     !
                     CALL MaxLocBreakTies(numPrices,Q(state,:,iAgent),idumQ,ivQ,iyQ,idum2Q, &
                         maxValQ(state,iAgent),strategyPrime(state,iAgent))
-!@SP                    maxValQ(state,iAgent) = MAXVAL(Q(state,:,iAgent))
-!@SP                    strategyPrime(state,iAgent) = SUM(MAXLOC(Q(state,:,iAgent)))
                     !
                 END IF
                 !
@@ -312,27 +322,28 @@ CONTAINS
         !
         ! Statistics
         !
-        printPMat = printPMat/DBLE(numGames)
-        printPMatQ = printPMatQ/DBLE(numGames)
-        printPmatQ = SQRT(ABS(printPMatQ-printPMat**2))
+        printPMat = printPMat/SPREAD(DBLE(countPMat),DIM = 2,NCOPIES = 2*numAgents)
+        printPMatQ = printPMatQ/SPREAD(DBLE(countPMat),DIM = 2,NCOPIES = 2*numAgents)
+        printPMatQ = SQRT(ABS(printPMatQ-printPMat**2))
         !
         ! File name
         !
-        WRITE(codModelChar,'(I0.5)') iModel
-        PTrajectoryFileName = 'PTrajectories_' // codModelChar // '.txt'
+        i = 1+INT(LOG10(DBLE(numModels)))
+        WRITE(codModelChar,'(I0.<i>, A4)') iModel, '.txt'
+        PTrajectoryFileName = 'PTrajectories_' // codModelChar 
         OPEN(UNIT = 991,FILE = PTrajectoryFileName,STATUS = "REPLACE")
         WRITE(991,990) (iAgent, iAgent = 1, numAgents), (iAgent, iAgent = 1, numAgents), & 
                        (iAgent, iAgent = 1, numAgents), (iAgent, iAgent = 1, numAgents)
-990     FORMAT('      iter ', &
+990     FORMAT('      iter Replications ', &
             <numAgents>('      Price', I1, ' '), <numAgents>('    sePrice', I1, ' '), &
             <numAgents>('     Profit', I1, ' '), <numAgents>('   seProfit', I1))
-        DO i = 0, itersPerYear
+        DO i = 0, MIN(itersPerYear,NINT(itersInPerfMeasPeriod+itersPerYear*MAXVAL(timeToConvergence))/printP)
             !
-            WRITE(991,991) i*printP, printPMat(i,:numAgents), printPMatQ(i,:numAgents), &
+            WRITE(991,991) i*printP, countPMat(i), printPMat(i,:numAgents), printPMatQ(i,:numAgents), &
                 printPMat(i,numAgents+1:), printPMatQ(i,numAgents+1:)
             !
         END DO
-991     FORMAT(I10, 1X, <4*numAgents>(F12.5,1X))
+991     FORMAT(I10, 1X, I12, 1X, <4*numAgents>(F12.5,1X))
         CLOSE(UNIT = 991)
         !
     END IF
@@ -360,10 +371,6 @@ CONTAINS
         !
     END DO
     CLOSE(UNIT = 999)
-    !
-    ! Deallocate variables
-    !
-    IF (printP .GT. 0) DEALLOCATE(printPMat)
     !
     ! Ending execution and returning control
     !
@@ -444,9 +451,6 @@ CONTAINS
         END DO
         !
     END IF
-!@SP Sanity check    
-!pPrime(1) = 14
-!@SP Sanity check    
     !
     ! Ending execution and returning control
     !

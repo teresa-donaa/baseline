@@ -4,6 +4,7 @@ USE globals
 USE LearningSimulation
 USE LearningSimulationRestart
 USE ConvergenceResults
+USE PolicyImprovement
 USE ImpulseResponse
 USE EquilibriumCheck
 USE QGapToMaximum
@@ -31,7 +32,7 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "detailed_IR_analysis.txt"
+ModelName = "profitgain_trajectory.txt"
 FileName = "mod_" // ModelName
 !
 OPEN(UNIT = 10001,FILE = FileName)
@@ -174,6 +175,9 @@ IF (SwitchMixedStrategies(1) .EQ. 0) THEN
         ! Results at convergence
         ! 
         IF (SwitchConvergenceResults .EQ. 1) CALL ComputeConvResults(iModel)
+!@SP
+!CALL ImprovePolicy ( )
+!@SP
         !
         ! Impulse Response analysis to one-period deviation to static best response
         ! 

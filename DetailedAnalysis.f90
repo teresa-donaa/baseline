@@ -40,10 +40,6 @@ CONTAINS
         StaticBRIndPrices, DynamicBRIndPrices
     INTEGER, DIMENSION(numAgents) :: flagBRAll, flagBROnPath, flagBROffPath
     INTEGER :: flagEQAll, flagEQOnPath, flagEQOffPath
-!@SP
-INTEGER, DIMENSION(numStates,numAgents) :: OldStrategy, NewStrategy
-INTEGER :: numImprovements
-!@SP
     !
     REAL(8) :: PIStaticBR, timeToConvergence(numGames)
     REAL(8), DIMENSION(numAgents,numPeriods,numGames) :: CycleProfits
@@ -150,17 +146,6 @@ INTEGER :: numImprovements
             !
             OptimalStrategyVec = indexStrategies(:,iGame)
             OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
-!@SP
-!@SP Policy Improvement experiment
-NewStrategy = OptimalStrategy
-DO i = 1, 100
-    !
-    OldStrategy = NewStrategy
-    CALL ImprovePolicy(OldStrategy,NewStrategy,numImprovements)
-    PRINT*, 'numImprovements = ', numImprovements
-    !
-END DO
-!@SP
             !
             ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             ! Pre-shock period analysis
@@ -194,7 +179,7 @@ END DO
             ! ProfitGain, Statistics on BR and EQ
             !
             ProfitGains = (AvgPreProfits-NashProfits)/(CoopProfits-NashProfits)
-            CALL computeEqCheckGame(OptimalStrategy,PeriodsLengthPre,VisitedStatesPre(:PeriodsLengthPre),SlackOffPath, &
+            CALL computeEqCheckGame(OptimalStrategy,PeriodsLengthPre,VisitedStatesPre(:PeriodsLengthPre),SlackOnPath,SlackOffPath, &
                 freqBRAll,freqBROnPath,freqBROffPath,freqEQAll,freqEQOnPath,freqEQOffPath, &
                 flagBRAll,flagBROnPath,flagBROffPath,flagEQAll,flagEQOnPath,flagEQOffPath)
             !

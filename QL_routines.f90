@@ -30,7 +30,8 @@ CONTAINS
     ! Declaring local variables
     !
     INTEGER :: iAgent, iPrice, iState, i, h, status
-    INTEGER :: tied(numPrices)
+    INTEGER :: tied(numPrices), Strategy(numStates,numAgents)
+    INTEGER :: VisitedStates(numPeriods), PreCycleLength, CycleLength
     REAL(8) :: den, u
     CHARACTER(len = 225) :: QFileName
     CHARACTER(len = 5) :: iChar
@@ -41,7 +42,25 @@ CONTAINS
     !
     DO iAgent = 1, numAgents
         !
-        IF (typeQInitialization(iAgent) .EQ. 'O') THEN
+        IF (typeQInitialization(iAgent) .EQ. 'F') THEN
+            !
+            ! Assuming strategies fixed at action "QMatrixInitializationF"
+            !
+            Strategy = QMatrixInitializationF(iAgent)
+            DO iState = 1, numStates            ! Start of loop over states
+                !
+                ! Compute state value function for Strategy in iState, for all prices
+                !
+                DO iPrice = 1, numPrices            ! Start of loop over prices to compute a row of Q
+                    !
+                    CALL computeQcell(Strategy,iState,iPrice,iAgent,delta, &
+                        Q(iState,iPrice,iAgent),VisitedStates,PreCycleLength,CycleLength)
+                    !
+                END DO                              ! End of loop over prices to compute a row of Q
+                !
+            END DO                              ! End of loop over states
+            !
+        ELSE IF (typeQInitialization(iAgent) .EQ. 'O') THEN
             !
             ! Randomizing over the opponents decisions
             !
@@ -115,8 +134,6 @@ CONTAINS
         END DO
         !
     END DO
-!@SP    maxValQ = MAXVAL(Q,DIM = 2)
-!@SP    maxLocQ = MAXLOC(Q,DIM = 2)
     !
     ! Ending execution and returning control
     !
@@ -450,6 +467,91 @@ CONTAINS
     ! Ending execution and returning control
     !
     END SUBROUTINE computeIndicators
+!
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    SUBROUTINE computeQCell ( OptimalStrategy, iState, iPrice, iAgent, delta, &
+        QCell, VisitedStates, PreCycleLength, CycleLength )
+    !
+    ! Computes a cell of the 'true' (i.e., theoretical) Q matrix
+    !
+    ! INPUT:
+    !
+    ! - OptimalStrategy     : strategy for all agents
+    ! - iState              : current state
+    ! - iPrice              : price (i.e., action) index
+    ! - iAgent              : agent index
+    ! - delta               : discount factors
+    !
+    ! OUTPUT:
+    !
+    ! - QCell               : 'theoretical'/'true' Q(iState,iPrice,iAgent)
+    ! - VisitedStates       : numPeriods array of states visited (0 after start of cycling)
+    ! - PreCycleLength      : number of periods in the pre-cycle phase
+    ! - CycleLength         : number of periods in the cycle phase
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    INTEGER, INTENT(IN) :: OptimalStrategy(numStates,numAgents)
+    INTEGER, INTENT(IN) :: iState
+    INTEGER, INTENT(IN) :: iPrice
+    INTEGER, INTENT(IN) :: iAgent
+    REAL(8), DIMENSION(numAgents), INTENT(IN) :: delta
+    REAL(8), INTENT(OUT) :: QCell
+    INTEGER, DIMENSION(numPeriods), INTENT(OUT) :: VisitedStates
+    INTEGER, INTENT(OUT) :: PreCycleLength, CycleLength
+    !
+    ! Declaring local variable
+    !
+    INTEGER :: iPeriod, p(DepthState,numAgents), pPrime(numAgents)
+    REAL(8) :: VisitedProfits(numPeriods), PreCycleProfit, CycleProfit
+    !
+    ! Beginning execution
+    !
+    ! Initial p and pPrime, including deviation to iPrice
+    !
+    p = RESHAPE(convertNumberBase(iState-1,numPrices,numAgents*DepthState),(/ DepthState,numAgents /))
+    pPrime = OptimalStrategy(iState,:)
+    pPrime(iAgent) = iPrice
+    !
+    ! Loop over deviation period
+    !
+    VisitedStates = 0
+    VisitedProfits = 0.d0
+    DO iPeriod = 1, numPeriods
+        !
+        IF (DepthState .GT. 1) p(2:DepthState,:) = p(1:DepthState-1,:)
+        p(1,:) = pPrime
+        VisitedStates(iPeriod) = computeStateNumber(p)
+        VisitedProfits(iPeriod) = PI(computeActionNumber(pPrime),iAgent)
+        !
+        ! Check if the state has already been visited
+        !
+        IF ((iPeriod .GE. 2) .AND. (ANY(VisitedStates(:iPeriod-1) .EQ. VisitedStates(iPeriod)))) THEN
+            !
+            PreCycleLength = MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
+            CycleLength = iPeriod-PreCycleLength
+            EXIT
+            !
+        END IF
+        !
+        ! After period 1, every agent follows the optimal strategy
+        !
+        pPrime = OptimalStrategy(VisitedStates(iPeriod),:)
+        !
+    END DO
+    !
+    ! 2. Compute state value function for the optimal strategy
+    !
+    PreCycleProfit = SUM(DiscountFactors(0:PreCycleLength-1,iAgent)*VisitedProfits(1:PreCycleLength))
+    CycleProfit = SUM(DiscountFactors(0:CycleLength-1,iAgent)*VisitedProfits(PreCycleLength+1:iPeriod))
+    Qcell = PreCycleProfit+delta(iAgent)**PreCycleLength*CycleProfit/(1.d0-delta(iAgent)**CycleLength)
+    !
+    ! Ending execution and returning control
+    !
+    END SUBROUTINE computeQcell
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

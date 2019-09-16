@@ -11,6 +11,7 @@ IMPLICIT NONE
 INTEGER, PARAMETER :: numShockPeriodsPrint = 25
 INTEGER, PARAMETER :: numThresCycleLength = 10
 !
+REAL(8), PARAMETER :: SlackOnPath = 0.05d0
 REAL(8), PARAMETER :: SlackOffPath = 0.05d0
 REAL(8), PARAMETER :: twoOverPi = 0.636619772367581343075535053490d0    ! 2/Pi
 REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
@@ -30,7 +31,7 @@ CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastSt
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
     indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
-    SwitchMixedStrategies(:), QMatrixInitializationT(:)
+    SwitchMixedStrategies(:), QMatrixInitializationT(:), QMatrixInitializationF(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     maxValQ(:,:), NashPrices(:), CoopPrices(:), &
     PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), DiscountFactors(:,:), & 
@@ -120,13 +121,15 @@ CONTAINS
     ! Read type of Q matrix initialization
     !
     ALLOCATE(typeQInitialization(numAgents),QMatrixInitializationR(numAgents,2), &
-        QMatrixInitializationU(numAgents),QMatrixInitializationT(numAgents))
+        QMatrixInitializationU(numAgents),QMatrixInitializationT(numAgents), &
+        QMatrixInitializationF(numAgents))
     READ(unitNumber,*) typeQInitialization
     DO iAgent = 1, numAgents
         !
         IF (typeQInitialization(iAgent) .EQ. 'R') READ(unitNumber,*) QMatrixInitializationR(iAgent,:)
         IF (typeQInitialization(iAgent) .EQ. 'U') READ(unitNumber,*) QMatrixInitializationU(iAgent)
         IF (typeQInitialization(iAgent) .EQ. 'T') READ(unitNumber,*) QMatrixInitializationT(iAgent)
+        IF (typeQInitialization(iAgent) .EQ. 'F') READ(unitNumber,*) QMatrixInitializationF(iAgent)
         !
     END DO
     READ(unitNumber,'(1X)')
@@ -204,7 +207,7 @@ CONTAINS
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
         SwitchMixedStrategies,typeQInitialization,QMatrixInitializationR,QMatrixInitializationU, &
-        QMatrixInitializationT)
+        QMatrixInitializationT,QMatrixInitializationF)
     !
     ! Ending execution and returning control
     !
