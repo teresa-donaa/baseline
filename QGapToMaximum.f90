@@ -310,29 +310,32 @@ CONTAINS
     !
     IF (iModel .EQ. 1) THEN
         !
-        WRITE(10006,1) (i, i = 1, numAgents) &
-            , (i, i = 1, numExplorationParameters), (i, i = 1, numAgents) &
-            , (i, i = 1, numDemandParameters) &
-            , (i, i = 1, numAgents), (i, i = 1, numAgents) &
-            , (i, i = 1, numAgents), (i, i = 1, numAgents) &
-            , (i, i = 1, numAgents), (i, i = 1, numAgents) &
-            , ((i, j, j = 1, numPrices), i = 1, numAgents) &
-            , (i, i, i, i, i, i, i, i = 1, numAgents) &
-            , (j, j, j, j, j, j, j, &
+        WRITE(10006,1) &
+            (i, i = 1, numAgents), &
+            (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
+            (i, (j, i, j = 1, 2), i = 1, numAgents), &
+            (i, i = 1, numDemandParameters), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            ((i, j, j = 1, numPrices), i = 1, numAgents), &
+            (i, i, i, i, i, i, i, i = 1, numAgents), &
+            (j, j, j, j, j, j, j, &
                 (j, i, j, i, j, i, j, i, j, i, j, i, j, i, i = 1, numAgents), j = 1, numThresPathCycleLength)
-1       FORMAT('Model ' &
-            , <numAgents>('    alpha', I1, ' ') &
-            , <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' ') &
-            , <numDemandParameters>('  DemPar', I2.2, ' ') &
-            , <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' ') &
-            , <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' ') &
-            , <numAgents>('NashMktSh', I1, ' '), <numAgents>('CoopMktSh', I1, ' ') &
-            , <numAgents>(<numPrices>('Ag', I1, 'Price', I2.2, ' ')) &
-            , '   QGapTot QGaponPath QGapNotOnPath ' &
-                , 'QGapNotBRAllSt QGapNotBROnPath QGapNotEqAllSt QGapNotEqOnPath ' &
-            , <numAgents>('QGapTotAg', I1, ' QGaponPathAg', I1, ' QGapNotOnPathAg', I1, ' ', &
-                'QGapNotBRAllStAg', I1, ' QGapNotBROnPathAg', I1, ' QGapNotEqAllStAg', I1, ' QGapNotEqOnPathAg', I1, ' ') &
-            , <numThresPathCycleLength>('   PL', I2.2, 'QGapTot PL', I2.2, 'QGaponPath PL', I2.2, 'QGapNotOnPath ', &
+1       FORMAT('Model ', &
+            <numAgents>('    alpha', I1, ' '), &
+            <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
+            <numAgents>('typeQini', I1, ' ', <2>('par', I1, 'Qini', I1, ' ')), &
+            <numDemandParameters>('  DemPar', I0.2, ' '), &
+            <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
+            <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
+            <numAgents>('NashMktSh', I1, ' '), <numAgents>('CoopMktSh', I1, ' '), &
+            <numAgents>(<numPrices>('Ag', I1, 'Price', I2.2, ' ')), &
+            '   QGapTot QGaponPath QGapNotOnPath ', &
+                'QGapNotBRAllSt QGapNotBROnPath QGapNotEqAllSt QGapNotEqOnPath ', &
+            <numAgents>('QGapTotAg', I1, ' QGaponPathAg', I1, ' QGapNotOnPathAg', I1, ' ', &
+                'QGapNotBRAllStAg', I1, ' QGapNotBROnPathAg', I1, ' QGapNotEqAllStAg', I1, ' QGapNotEqOnPathAg', I1, ' '), &
+            <numThresPathCycleLength>('   PL', I2.2, 'QGapTot PL', I2.2, 'QGaponPath PL', I2.2, 'QGapNotOnPath ', &
                 'PL', I2.2, 'QGapNotBRAllSt PL', I2.2, 'QGapNotBROnPath PL', I2.2, 'QGapNotEqAllSt PL', I2.2, 'QGapNotEqOnPath ', &
             <numAgents>('PL', I2.2, 'QGapTotAg', I1, ' PL', I2.2, 'QGaponPathAg', I1, ' PL', I2.2, 'QGapNotOnPathAg', I1, ' ', &
                 'PL', I2.2, 'QGapNotBRAllStAg', I1, ' PL', I2.2, 'QGapNotBROnPathAg', I1, ' PL', I2.2, 'QGapNotEqAllStAg', I1, ' PL', I2.2, 'QGapNotEqOnPathAg', I1, ' ') ) &
@@ -340,8 +343,10 @@ CONTAINS
         !
     END IF
     !
-    WRITE(10006,2) iModel, &
-        alpha, MExpl, delta, DemandParameters, &
+    WRITE(10006,2) codModel, &
+        alpha, MExpl, delta, &
+        (typeQInitialization(i), parQInitialization(i, :), i = 1, numAgents), &
+        DemandParameters, &
         NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
         (PricesGrids(:,i), i = 1, numAgents), &
         SumQGapTot(0,0), SumQGapOnPath(0,0), SumQGapNotOnPath(0,0), &
@@ -352,14 +357,16 @@ CONTAINS
             SumQGapNotBRAllStates(j,0), SumQGapNotBRonPath(j,0), SumQGapNotEqAllStates(j,0), SumQGapNotEqonPath(j,0), &
         (SumQGapTot(j,i), SumQGapOnPath(j,i), SumQGapNotOnPath(j,i), &
             SumQGapNotBRAllStates(j,i), SumQGapNotBRonPath(j,i), SumQGapNotEqAllStates(j,i), SumQGapNotEqonPath(j,i), i = 1, numAgents), j = 1, numThresPathCycleLength)
-2   FORMAT(I5, 1X &
-        , <3*numAgents+numDemandParameters>(F10.5, 1X) &
-        , <6*numAgents>(F10.5, 1X) &
+2   FORMAT(I5, 1X, &
+        <3*numAgents>(F10.5, 1X), &
+        <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+        <numDemandParameters>(F10.5, 1X), &
+        <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
-        , F10.7, 1X, F10.7, 1X, F13.7, 1X, F14.7, 1X, F15.7, 1X, F14.7, 1X, F15.7, 1X &
-        , <numAgents>(F10.7, 1X, F13.7, 1X, F16.7, 1X, F17.7, 1X, F18.7, 1X, F17.7, 1X, F18.7, 1X) &
-        , <numThresPathCycleLength>(F14.7, 1X, F14.7, 1X, F17.7, 1X, F18.7, 1X, F19.7, 1X, F18.7, 1X, F19.7, 1X &
-        ,    <numAgents>(F14.7, 1X, F17.7, 1X, F20.7, 1X, F21.7, 1X, F22.7, 1X, F21.7, 1X, F22.7, 1X)) &
+        F10.7, 1X, F10.7, 1X, F13.7, 1X, F14.7, 1X, F15.7, 1X, F14.7, 1X, F15.7, 1X, &
+        <numAgents>(F10.7, 1X, F13.7, 1X, F16.7, 1X, F17.7, 1X, F18.7, 1X, F17.7, 1X, F18.7, 1X), &
+        <numThresPathCycleLength>(F14.7, 1X, F14.7, 1X, F17.7, 1X, F18.7, 1X, F19.7, 1X, F18.7, 1X, F19.7, 1X, &
+           <numAgents>(F14.7, 1X, F17.7, 1X, F20.7, 1X, F21.7, 1X, F22.7, 1X, F21.7, 1X, F22.7, 1X)) &
         )
     !
     ! Ending execution and returning control

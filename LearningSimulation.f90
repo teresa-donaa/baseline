@@ -31,23 +31,23 @@ CONTAINS
     ! Declaring local variable
     !
     INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2, idumQ, ivQ(32), iyQ, idum2Q
-    INTEGER :: iIters, i, j, h, iGame, iItersInStrategy, convergedGame
-    INTEGER :: state, statePrime, actionPrime
-    INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime
+    INTEGER :: iIters, iItersFix, i, j, h, l, iGame, iItersInStrategy, convergedGame, numGamesConverged
+    INTEGER :: state, statePrime, stateFix, actionPrime
+    INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime, strategyFix
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
-    INTEGER :: minIndexStrategies, maxIndexStrategies
-    INTEGER, DIMENSION(0:itersPerYear) :: countPMat
+    INTEGER :: minIndexStrategies, maxIndexStrategies, sizePrintPMat
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
-    REAL(8) :: u(2), eps(numAgents)
-    REAL(8) :: newq, oldq, profitgain
-    REAL(8), DIMENSION(0:itersPerYear,2*numAgents) :: printPMat, printPMatQ
-    REAL(8), DIMENSION(2*numAgents) :: RowPMat, RowPMatQ
+    REAL(8) :: u(2), eps(numAgents), temp(numAgents)
+    REAL(8) :: newq, oldq, profitgain(numAgents)
+    REAL(8), DIMENSION(0:itersPerYear,numAgents+1) :: printPMat, printPMatQ
+    REAL(8), DIMENSION(numAgents+1) :: RowPMat, RowPMatQ
+    REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
     CHARACTER(len = 25) :: QFileName
-    CHARACTER(len = 5) :: iGamesChar
-    CHARACTER(len = 5) :: codModelChar
+    CHARACTER(len = 5) :: iGamesChar, codModelChar
     CHARACTER(len = 200) :: PTrajectoryFileName
+    LOGICAL :: maskConverged(numGames)
     !
     ! Beginning execution
     !
@@ -57,7 +57,8 @@ CONTAINS
     indexStrategies = 0
     indexLastState = 0
     timeToConvergence = 0.d0
-    WRITE(codModelChar,'(I0.5)') codModel
+    i = 1+INT(LOG10(DBLE(totModels)))
+    WRITE(codModelChar,'(I0.<i>)') codModel
     !
     ! Allocate variables
     !
@@ -65,7 +66,6 @@ CONTAINS
         !
         printPMat = 0.d0
         printPMatQ = 0.d0
-        countPMat = 0
         !
     END IF
     !
@@ -86,13 +86,13 @@ CONTAINS
     ! Starting loop over games
     !
     !$omp parallel do &
-    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
-    !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy,convergedGame, &
-    !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
+    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ,temp, &
+    !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersFix,iItersInStrategy,convergedGame, &
+    !$omp   state,stateFix,strategy,strategyFix,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar,RowPMat,RowPMatQ) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
     !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,profitgain,codModelChar) &
-    !$omp reduction(+ : printPMat,printPMatQ,countPMat)
+    !$omp reduction(+ : printPMat,printPMatQ)
     DO iGame = 1, numGames
         !
         PRINT*, 'Game = ', iGame, ' started'
@@ -129,20 +129,20 @@ CONTAINS
         !
         iIters = 0
         iItersInStrategy = 0
-        convergedGame = 1
+        convergedGame = -1
+        temp = ExplorationParameters(:numAgents)
         IF (printP .GT. 0) THEN
             !
             actionPrime = computeActionNumber(p(1,:))
             DO iAgent = 1, numAgents
                 !
-                printPMat(iIters,iAgent) = printPMat(iIters,iAgent)+PricesGrids(p(1,iAgent),iAgent)
-                profitgain = (PI(actionPrime,iAgent)-NashProfits(iAgent))/(CoopProfits(iAgent)-NashProfits(iAgent))
-                printPMat(iIters,numAgents+iAgent) = printPMat(iIters,numAgents+iAgent)+profitgain
-                printPMatQ(iIters,iAgent) = printPMatQ(iIters,iAgent)+PricesGrids(p(1,iAgent),iAgent)**2
-                printPMatQ(iIters,numAgents+iAgent) = printPMatQ(iIters,numAgents+iAgent)+profitgain**2
+                profitgain(iAgent) = (PI(actionPrime,iAgent)-NashProfits(iAgent))/(CoopProfits(iAgent)-NashProfits(iAgent))
+                printPMat(iIters,iAgent) = printPMat(iIters,iAgent)+profitgain(iAgent)
+                printPMatQ(iIters,iAgent) = printPMatQ(iIters,iAgent)+profitgain(iAgent)**2
                 !
             END DO
-            countPMat(iIters) = countPMat(iIters)+1
+            printPMat(iIters,numAgents+1) = printPMat(iIters,numAgents+1)+SUM(profitgain)/DBLE(numAgents)
+            printPMatQ(iIters,numAgents+1) = printPMatQ(iIters,numAgents+1)+(SUM(profitgain)/DBLE(numAgents))**2
             RowPMat = 0.d0
             RowPMatQ = 0.d0
             !
@@ -160,7 +160,7 @@ CONTAINS
             !
             ! Compute pPrime by balancing exploration vs. exploitation
             !
-            CALL computePPrime(ExplorationParameters,uExploration,strategyPrime,state,iIters,pPrime,Q)
+            CALL computePPrime(ExplorationParameters,uExploration,strategyPrime,state,iIters,pPrime,Q,temp)
             !
             ! Defining the new state
             !
@@ -175,19 +175,18 @@ CONTAINS
                 !
                 DO iAgent = 1, numAgents
                     !
-                    RowPMat(iAgent) = RowPMat(iAgent)+PricesGrids(pPrime(iAgent),iAgent)
-                    profitgain = (PI(actionPrime,iAgent)-NashProfits(iAgent))/(CoopProfits(iAgent)-NashProfits(iAgent))
-                    RowPMat(numAgents+iAgent) = RowPMat(numAgents+iAgent)+profitgain
-                    RowPMatQ(iAgent) = RowPMatQ(iAgent)+PricesGrids(p(1,iAgent),iAgent)**2
-                    RowPMatQ(numAgents+iAgent) = RowPMatQ(numAgents+iAgent)+profitgain**2
+                    profitgain(iAgent) = (PI(actionPrime,iAgent)-NashProfits(iAgent))/(CoopProfits(iAgent)-NashProfits(iAgent))
+                    RowPMat(iAgent) = RowPMat(iAgent)+profitgain(iAgent)
+                    RowPMatQ(iAgent) = RowPMatQ(iAgent)+profitgain(iAgent)**2
                     !
                 END DO
+                RowPMat(numAgents+1) = RowPMat(numAgents+1)+SUM(profitgain)/DBLE(numAgents)
+                RowPMatQ(numAgents+1) = RowPMatQ(numAgents+1)+(SUM(profitgain)/DBLE(numAgents))**2
                 !
                 IF (MOD(iIters,printP) .EQ. 0) THEN
                     !
                     printPMat(iIters/printP,:) = printPMat(iIters/printP,:)+RowPMat/DBLE(printP)
                     printPMatQ(iIters/printP,:) = printPMatQ(iIters/printP,:)+RowPMatQ/DBLE(printP)
-                    countPMat(iIters/printP) = countPMat(iIters/printP)+1
                     RowPMat = 0.d0
                     RowPMatQ = 0.d0
                     !
@@ -249,21 +248,43 @@ CONTAINS
             !
             ! Check for convergence in strategy
             !
-            IF (iItersInStrategy .EQ. itersInPerfMeasPeriod) THEN
+            IF (convergedGame .EQ. -1) THEN
                 !
-                IF (PerfMeasPeriodTime .GE. 1) convergedGame = 0
-                EXIT
+                ! Maximum number of iterations exceeded
+                IF (iIters .GT. maxIters) THEN
+                    !
+                    convergedGame = 0
+                    strategyFix = strategy
+                    stateFix = state
+                    iItersFix = iIters
+                    !
+                END IF
+                !
+                ! Prescribed number of iterations reached
+                IF ((iItersInStrategy .EQ. itersInPerfMeasPeriod) .AND. (PerfMeasPeriodTime .GE. 1)) THEN
+                    !
+                    convergedGame = 0
+                    strategyFix = strategy
+                    stateFix = state
+                    iItersFix = iIters
+                    !
+                END IF
+                !
+                ! Convergence in strategy reached
+                IF ((iItersInStrategy .EQ. itersInPerfMeasPeriod) .AND. (PerfMeasPeriodTime .LE. 0)) THEN
+                    !
+                    convergedGame = 1
+                    strategyFix = strategy
+                    stateFix = state
+                    iItersFix = iIters
+                    !
+                END IF
                 !
             END IF
             !
-            ! Check for too many iterations
+            ! Check for loop exit criterion
             !
-            IF (iIters .GT. maxIters) THEN
-                !
-                convergedGame = 0
-                EXIT
-                !
-            END IF
+            IF ((convergedGame .NE. -1) .AND. (iIters .GE. itersPerYear*printP)) EXIT
             !
             ! If no convergence yet, update and iterate
             !
@@ -304,9 +325,9 @@ CONTAINS
         ! Record results at convergence
         !
         converged(iGame) = convergedGame
-        indexStrategies(:,iGame) = computeStrategyNumber(strategy)
-        indexLastState(:,iGame) = convertNumberBase(state-1,numPrices,LengthStates)
-        timeToConvergence(iGame) = DBLE(iIters-itersInPerfMeasPeriod)/itersPerYear
+        indexStrategies(:,iGame) = computeStrategyNumber(strategyFix)
+        indexLastState(:,iGame) = convertNumberBase(stateFix-1,numPrices,LengthStates)
+        timeToConvergence(iGame) = DBLE(iItersFix-itersInPerfMeasPeriod)/itersPerYear
         !
         IF (convergedGame .EQ. 1) PRINT*, 'Game = ', iGame, ' converged'
         IF (convergedGame .EQ. 0) PRINT*, 'Game = ', iGame, ' did not converge'
@@ -322,28 +343,27 @@ CONTAINS
         !
         ! Statistics
         !
-        printPMat = printPMat/SPREAD(DBLE(countPMat),DIM = 2,NCOPIES = 2*numAgents)
-        printPMatQ = printPMatQ/SPREAD(DBLE(countPMat),DIM = 2,NCOPIES = 2*numAgents)
+        printPMat = printPMat/DBLE(numGames)
+        printPMatQ = printPMatQ/DBLE(numGames)
         printPMatQ = SQRT(ABS(printPMatQ-printPMat**2))
         !
         ! File name
         !
-        i = 1+INT(LOG10(DBLE(numModels)))
-        WRITE(codModelChar,'(I0.<i>, A4)') iModel, '.txt'
-        PTrajectoryFileName = 'PTrajectories_' // codModelChar 
+        PTrajectoryFileName = 'PTrajectories_' // ModelNumber 
         OPEN(UNIT = 991,FILE = PTrajectoryFileName,STATUS = "REPLACE")
-        WRITE(991,990) (iAgent, iAgent = 1, numAgents), (iAgent, iAgent = 1, numAgents), & 
-                       (iAgent, iAgent = 1, numAgents), (iAgent, iAgent = 1, numAgents)
-990     FORMAT('      iter Replications ', &
-            <numAgents>('      Price', I1, ' '), <numAgents>('    sePrice', I1, ' '), &
-            <numAgents>('     Profit', I1, ' '), <numAgents>('   seProfit', I1))
-        DO i = 0, MIN(itersPerYear,NINT(itersInPerfMeasPeriod+itersPerYear*MAXVAL(timeToConvergence))/printP)
+        WRITE(991,990) (iAgent, iAgent = 1, numAgents), (iAgent, iAgent = 1, numAgents)
+990     FORMAT('      iter ', &
+            '  AvgProfitGain', 1X, 'seAvgProfitGain', 1X, &
+            <numAgents>('  ProfitGain', I1, ' '), <numAgents>('seProfitGain', I1, ' '))
+        sizePrintPMat = MIN(itersPerYear,NINT(itersInPerfMeasPeriod+itersPerYear*MAXVAL(timeToConvergence))/printP)
+        DO i = 0, sizePrintPMat
             !
-            WRITE(991,991) i*printP, countPMat(i), printPMat(i,:numAgents), printPMatQ(i,:numAgents), &
-                printPMat(i,numAgents+1:), printPMatQ(i,numAgents+1:)
+            WRITE(991,991) i*printP, &
+                printPMat(i,numAgents+1), printPMatQ(i,numAgents+1), &
+                printPMat(i,:numAgents), printPMatQ(i,:numAgents)
             !
         END DO
-991     FORMAT(I10, 1X, I12, 1X, <4*numAgents>(F12.5,1X))
+991     FORMAT(I10, 1X, <2>(F15.5, 1X), <2*numAgents>(F13.5,1X))
         CLOSE(UNIT = 991)
         !
     END IF
@@ -372,13 +392,96 @@ CONTAINS
     END DO
     CLOSE(UNIT = 999)
     !
+    ! Prints the RES output file
+    !
+    numGamesConverged = SUM(converged)
+    maskConverged = (converged .EQ. 1)
+    meanNashProfit = SUM(NashProfits)/numAgents
+    meanCoopProfit = SUM(CoopProfits)/numAgents
+    !
+    ! Time to convergence
+    !
+    meanTimeToConvergence = SUM(timeToConvergence,MASK = maskConverged)/numGamesConverged
+    seTimeToConvergence = &
+        SQRT(SUM(timeToConvergence**2,MASK = maskConverged)/numGamesConverged-meanTimeToConvergence**2)
+    medianTimeToConvergence = median(timeToConvergence)
+    !
+    ! Print output
+    !
+    IF (iModel .EQ. 1) THEN
+        !
+        WRITE(10002,891) &
+            (i, i = 1, numAgents), &
+            (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
+            (i, (j, i, j = 1, 2), i = 1, numAgents), &
+            (i, i = 1, numDemandParameters), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            ((i, j, j = 1, numPrices), i = 1, numAgents), &
+            (i, i = 0, 1000), (i, i = 0, 1000), (i, i = 0, 1000)
+891         FORMAT('Model ', &
+            <numAgents>('    alpha', I1, ' '), &
+            <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
+            <numAgents>('typeQini', I1, ' ', <2>('par', I1, 'Qini', I1, ' ')), &
+            <numDemandParameters>('  DemPar', I0.2, ' '), &
+            <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
+            <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
+            <numAgents>('NashMktSh', I1, ' '), <numAgents>('CoopMktSh', I1, ' '), &
+            <numAgents>(<numPrices>('Ag', I1, 'Price', I0.2, ' ')), &
+            '   numConv     avgTTC      seTTC     medTTC ', &
+            <1001>('iters_', I0.4, ' '), <1001>('apg_', I0.4, ' '), <1001>('se_apg_', I0.4, ' '))
+        !
+    END IF
+    !
+    IF (printP .GT. 0) THEN
+        !
+        WRITE(10002,9910) codModel, &
+            alpha, MExpl, delta, &
+            (typeQInitialization(i), parQInitialization(i, :), i = 1, numAgents), &
+            DemandParameters, &
+            NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
+            (PricesGrids(:,i), i = 1, numAgents), &
+            numGamesConverged, meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence, &
+            (i*sizePrintPMat/1000*printP, i = 0, 999), sizePrintPMat*printP, &
+            (printPMat(i*itersPerYear/1000,numAgents+1), i = 0, 999), printPMat(sizePrintPMat,numAgents+1), &
+            (printPMatQ(i*sizePrintPMat/1000,numAgents+1), i = 0, 999), printPMatQ(sizePrintPMat,numAgents+1)
+9910    FORMAT(I5, 1X, &
+            <numAgents>(F10.5, 1X), <numExplorationParameters>(F10.5, 1X), <numAgents>(F10.5, 1X), &
+            <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+            <numDemandParameters>(F10.5, 1X), &
+            <6*numAgents>(F10.5, 1X), &
+            <numPrices*numAgents>(F10.7, 1X), &
+            I10, 1X, <3>(F10.2, 1X), &
+            <1001>(I10, 1X), <1001>(F8.3, 1X), <1001>(F11.3, 1X))
+        !
+    ELSE
+        !
+        WRITE(10002,9911) codModel, &
+            alpha, MExpl, delta, &
+            (typeQInitialization(i), parQInitialization(i, :), i = 1, numAgents), &
+            DemandParameters, &
+            NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
+            (PricesGrids(:,i), i = 1, numAgents), &
+            numGamesConverged, meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
+9911    FORMAT(I5, 1X, &
+            <numAgents>(F10.5, 1X), <numExplorationParameters>(F10.5, 1X), <numAgents>(F10.5, 1X), &
+            <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+            <numDemandParameters>(F10.5, 1X), &
+            <6*numAgents>(F10.5, 1X), &
+            <numPrices*numAgents>(F10.7, 1X), &
+            I10, 1X, <3>(F10.2, 1X))
+        !
+    END IF
+    !
     ! Ending execution and returning control
     !
     END SUBROUTINE computeModel
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE computePPrime ( ExplorationParameters, uExploration, strategyPrime, state, iIters, pPrime, Q )
+    SUBROUTINE computePPrime ( ExplorationParameters, uExploration, strategyPrime, state, iIters, &
+        pPrime, Q, temp )
     !
     ! Computes pPrime by balancing exploration vs. exploitation
     !
@@ -392,11 +495,13 @@ CONTAINS
     INTEGER, INTENT(IN) :: state, iIters
     INTEGER, INTENT(OUT) :: pPrime(numAgents)
     REAL(8), INTENT(IN) :: Q(numStates,numPrices,numAgents)
+    REAL(8), INTENT(INOUT) :: temp(numAgents)
     !
     ! Declaring local variables
     !
     INTEGER :: iAgent, iPrice
-    REAL(8) :: eps(numAgents), u(2)
+    REAL(8) :: eps(numAgents), u(2), maxQ
+    REAL(8) :: probs(numPrices)
     !
     ! Beginning execution
     !
@@ -447,6 +552,32 @@ CONTAINS
                 pPrime(iAgent) = strategyPrime(state,iAgent)
                 !
             END IF
+            !
+        END DO
+        !
+    END IF
+    !
+    ! 4. Boltzmann exploration
+    !
+    IF (typeExplorationMechanism .EQ. 4) THEN
+        !
+        DO iAgent = 1, numAgents
+            !
+            maxQ = MAXVAL(Q(state,:,iAgent))
+            probs = EXP((Q(state,:,iAgent)-maxQ)/temp(iAgent))
+            u = uExploration(:,iAgent)*SUM(probs)
+            DO iPrice = 1, numPrices
+                !
+                IF (iPrice .GT. 1) probs(iPrice) = probs(iPrice)+probs(iPrice-1)
+                IF (u(1) .LE. probs(iPrice)) THEN
+                    !
+                    pPrime(iAgent) = iPrice
+                    EXIT
+                    !
+                END IF
+                !
+            END DO
+            temp(iAgent) = temp(iAgent)*ExplorationParameters(numAgents+iAgent)
             !
         END DO
         !

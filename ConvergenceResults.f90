@@ -183,7 +183,10 @@ CONTAINS
     !
     IF (iModel .EQ. 1) THEN
         !
-        WRITE(100022,1) (i, i = 1, numAgents), (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
+        WRITE(100022,1) &
+            (i, i = 1, numAgents), &
+            (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
+            (i, (j, i, j = 1, 2), i = 1, numAgents), &
             (i, i = 1, numDemandParameters), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             (i, i = 1, numAgents), (i, i = 1, numAgents),  &
@@ -193,8 +196,9 @@ CONTAINS
             (labelStates(j), j = 1, numStates)
 1       FORMAT('Model ', &
             <numAgents>('    alpha', I1, ' '), &
-            <numExplorationParameters>('     beta', I1, ' '), &
-            <numAgents>('    delta', I1, ' '), <numDemandParameters>('  DemPar', I2.2, ' '), &
+            <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
+            <numAgents>('typeQini', I1, ' ', <2>('par', I1, 'Qini', I1, ' ')), &
+            <numDemandParameters>('  DemPar', I0.2, ' '), &
             <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
             <numAgents>('NashMktSh', I1, ' '), <numAgents>('CoopMktSh', I1, ' '), &
@@ -206,15 +210,19 @@ CONTAINS
         !
     END IF
     !
-    WRITE(100022,2) iModel, &
-        alpha, MExpl, delta, DemandParameters, &
+    WRITE(100022,2) codModel, &
+        alpha, MExpl, delta, &
+        (typeQInitialization(i), parQInitialization(i, :), i = 1, numAgents), &
+        DemandParameters, &
         NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
         (PricesGrids(:,i), i = 1, numAgents), &
         (meanProfit(i), seProfit(i), i = 1, numAgents), meanAvgProfit, seAvgProfit, &
         (meanProfitGain(i), seProfitGain(i), i = 1, numAgents), meanAvgProfitGain, seAvgProfitGain, &
         (meanFreqStates(i), i = 1, numStates)
 2   FORMAT(I5, 1X, &
-        <3*numAgents+numDemandParameters>(F10.5, 1X), &
+        <numAgents>(F10.5, 1X), <numExplorationParameters>(F10.5, 1X), <numAgents>(F10.5, 1X), &
+        <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+        <numDemandParameters>(F10.5, 1X), &
         <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         <2*(numAgents+1)>(F10.5, 1X), &

@@ -31,21 +31,23 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
     INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2, idumQ, ivQ(32), iyQ, idum2Q
-    REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
-    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
-    REAL(8) :: u(2), eps(numAgents)
-    REAL(8) :: newq, oldq, profitgain
-    INTEGER :: iIters, i, j, iGame, iItersInStrategy, convergedGame
+    INTEGER :: iIters, i, j, iGame, iItersInStrategy, convergedGame, numGamesConverged
     INTEGER :: state, statePrime, actionPrime
     INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies
+    REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
+    REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
+    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
+    REAL(8) :: u(2), eps(numAgents), temp(numAgents)
+    REAL(8) :: newq, oldq, profitgain
+    REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
     CHARACTER(len = 25) :: QFileName
     CHARACTER(len = 5) :: iGamesChar
     CHARACTER(len = 5) :: codModelChar
+    LOGICAL :: maskConverged(numGames)
     !
     ! Beginning execution
     !
@@ -73,7 +75,7 @@ CONTAINS
     ! Starting loop over games
     !
     !$omp parallel do &
-    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
+    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ,temp, &
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy, &
     !$omp   convergedGame,pricesGridsPrime, &
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
@@ -111,6 +113,7 @@ CONTAINS
         !
         iIters = 0
         iItersInStrategy = 0
+        temp = 1.d3
         DO 
             !
             ! Iterations counter
@@ -123,7 +126,7 @@ CONTAINS
             !
             ! Compute pPrime by balancing exploration vs. exploitation
             !
-            CALL computePPrime(ExplorationParameters,uExploration,strategyPrime,state,iIters,pPrime,Q)
+            CALL computePPrime(ExplorationParameters,uExploration,strategyPrime,state,iIters,pPrime,Q,temp)
             !
             ! Defining the new state
             !
@@ -377,6 +380,63 @@ CONTAINS
     END DO
     !$omp end parallel do
     !
+    ! Prints the RES output file
+    !
+    numGamesConverged = SUM(converged)
+    maskConverged = (converged .EQ. 1)
+    meanNashProfit = SUM(NashProfits)/numAgents
+    meanCoopProfit = SUM(CoopProfits)/numAgents
+    !
+    ! Time to convergence
+    !
+    meanTimeToConvergence = SUM(timeToConvergence,MASK = maskConverged)/numGamesConverged
+    seTimeToConvergence = &
+        SQRT(SUM(timeToConvergence**2,MASK = maskConverged)/numGamesConverged-meanTimeToConvergence**2)
+    medianTimeToConvergence = median(timeToConvergence)
+    !
+    ! Print output
+    !
+    IF (iModel .EQ. 1) THEN
+        !
+        WRITE(10002,891) &
+            (i, i = 1, numAgents), &
+            (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
+            (i, (j, i, j = 1, 2), i = 1, numAgents), &
+            (i, i = 1, numDemandParameters), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            (i, i = 1, numAgents), (i, i = 1, numAgents), &
+            ((i, j, j = 1, numPrices), i = 1, numAgents)
+891     FORMAT('Model ', &
+            <numAgents>('    alpha', I1, ' '), &
+            <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
+            <numAgents>('typeQini', I1, ' ', <2>('par', I1, 'Qini', I1, ' ')), &
+            <numDemandParameters>('  DemPar', I0.2, ' '), &
+            <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
+            <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
+            <numAgents>('NashMktSh', I1, ' '), <numAgents>('CoopMktSh', I1, ' '), &
+            <numAgents>(<numPrices>('Ag', I1, 'Price', I0.2, ' ')), &
+            '   numConv     avgTTC      seTTC     medTTC ')
+        !
+    END IF
+    !
+    WRITE(10002,991) codModel, &
+        alpha, MExpl, delta, &
+        (typeQInitialization(i), parQInitialization(i, :), i = 1, numAgents), &
+        DemandParameters, &
+        NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
+        (PricesGrids(:,i), i = 1, numAgents), &
+        numGamesConverged, &
+        meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
+991 FORMAT(I5, 1X, &
+        <3*numAgents>(F10.5, 1X), &
+        <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+        <numDemandParameters>(F10.5, 1X), &
+        <6*numAgents>(F10.5, 1X), &
+        <numPrices*numAgents>(F10.7, 1X), &
+        I10, 1X, &
+        <3>(F10.2, 1X))
+    !
     ! Ending execution and returning control
     !
     END SUBROUTINE computeModelRestart
@@ -522,9 +582,9 @@ CONTAINS
         ELSE IF (typeQInitialization(iAgent) .EQ. 'T') THEN
             !
             ! Start from a randomly drawn Q matrix at convergence 
-            ! on model "QMatrixInitializationT(iAgent)"
+            ! on model "parQInitialization(iAgent,1)"
             !
-            WRITE(codModelChar,'(I0.5)') QMatrixInitializationT(iAgent)
+            WRITE(codModelChar,'(I0.5)') NINT(parQInitialization(iAgent,1))
             i = 1+INT(DBLE(numGames)*ran2(idumQ,ivQ,iyQ,idum2Q))
             WRITE(iChar,'(I0.5)') i
             QFileName = 'Q_' // codModelChar // '_' // iChar // '.txt'
@@ -546,7 +606,7 @@ CONTAINS
         ELSE IF (typeQInitialization(iAgent) .EQ. 'R') THEN
             !
             ! Randomly initialized Q matrix using a uniform distribution between 
-            ! QMatrixInitializationR(2,iAgent) and QMatrixInitializationR(1,iAgent)
+            ! parQInitialization(iAgent,1) and parQInitialization(iAgent,2)
             !
             DO iState = 1, numStates
                 !
@@ -557,14 +617,14 @@ CONTAINS
                 END DO
                 !
             END DO
-            Q(:,:,iAgent) = QMatrixInitializationR(1,iAgent)+ &
-                (QMatrixInitializationR(2,iAgent)-QMatrixInitializationR(1,iAgent))*Q(:,:,iAgent)
+            Q(:,:,iAgent) = parQInitialization(iAgent,1)+ &
+                (parQInitialization(iAgent,2)-parQInitialization(iAgent,1))*Q(:,:,iAgent)
             !
         ELSE IF (typeQInitialization(iAgent) .EQ. 'U') THEN
             !
-            ! Constant Q matrix with all elements set to QMatrixInitializationU(iAgent)
+            ! Constant Q matrix with all elements set to parQInitialization(iAgent,1)
             !
-            Q(:,:,iAgent) = QMatrixInitializationU(iAgent)
+            Q(:,:,iAgent) = parQInitialization(iAgent,1)
             !
         END IF
         !

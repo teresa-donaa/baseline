@@ -32,8 +32,8 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "profitgain_trajectory.txt"
-FileName = "mod_" // ModelName
+ModelName = "figure_1_Boltzmann.txt"
+FileName = "A_mod_" // ModelName
 !
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)
@@ -41,7 +41,7 @@ DO iAgent = 1, numAgents
     !
     IF (typeQInitialization(iAgent) .EQ. 'T') THEN
         !
-        WRITE(iChar,'(I0.5)') QMatrixInitializationT(iAgent)
+        WRITE(iChar,'(I0.5)') NINT(parQInitialization(iAgent,1))
         QFileFolderName(iAgent) = &
             'C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_' // &
                 iChar // '/'
@@ -52,55 +52,55 @@ END DO
 !
 IF (SwitchQLearningResults .EQ. 1) THEN
     !
-    FileName = "res_" // ModelName
+    FileName = "A_res_" // ModelName
     OPEN(UNIT = 10002,FILE = FileName)
     !
 END IF
 IF (SwitchConvergenceResults .EQ. 1) THEN
     !
-    FileName = "ConvResults_" // ModelName
+    FileName = "A_convResults_" // ModelName
     OPEN(UNIT = 100022,FILE = FileName)
     !
 END IF
 IF (SwitchImpulseResponseToBR .EQ. 1) THEN
     !
-    FileName = "irToBR_" // ModelName
+    FileName = "A_irToBR_" // ModelName
     OPEN(UNIT = 10003,FILE = FileName)
     !
 END IF
 IF (SwitchImpulseResponseToNash .GE. 1) THEN
     !
-    FileName = "irToNash_" // ModelName
+    FileName = "A_irToNash_" // ModelName
     OPEN(UNIT = 100031,FILE = FileName)
     !
 END IF
 IF (SwitchImpulseResponseToAll .EQ. 1) THEn
     !
-    FileName = "irToAll_" // ModelName
+    FileName = "A_irToAll_" // ModelName
     OPEN(UNIT = 100032,FILE = FileName)
     !
 END IF
 IF (SwitchEquilibriumCheck .EQ. 1) THEN
     !
-    FileName = "ec_" // ModelName
+    FileName = "A_ec_" // ModelName
     OPEN(UNIT = 10004,FILE = FileName)
     !
 END IF
 IF (SwitchQGapToMaximum .EQ. 1) THEN
     !
-    FileName = "qg_" // ModelName
+    FileName = "A_qg_" // ModelName
     OPEN(UNIT = 10006,FILE = FileName)
     !
 END IF
 IF (SwitchPIGapToMaximum .EQ. 1) THEN
     !
-    FileName = "pg_" // ModelName
+    FileName = "A_pg_" // ModelName
     OPEN(UNIT = 10007,FILE = FileName)
     !
 END IF
 IF (SwitchDetailedAnalysis .EQ. 1) THEN
     !
-    FileName = "det_" // ModelName
+    FileName = "A_det_" // ModelName
     OPEN(UNIT = 100033,FILE = FileName)
     !
 END IF
@@ -139,7 +139,7 @@ IF (SwitchMixedStrategies(1) .EQ. 0) THEN
         !
         ! Creating I/O filenames
         !
-        i = 1+INT(LOG10(DBLE(numModels)))
+        i = 1+INT(LOG10(DBLE(totModels)))
         WRITE(ModelNumber, "(I0.<i>, A4)") codModel, ".txt"
         FileNameIndexStrategies = "indexStrategiesTransposed_" // ModelNumber
         FileNameIndexLastState = "indexLastState_" // ModelNumber
@@ -168,7 +168,7 @@ IF (SwitchMixedStrategies(1) .EQ. 0) THEN
             !
             ! Output of convergence results
             !
-            CALL computeIndicators(iModel,converged,timeToConvergence) 
+!            CALL computeIndicators(iModel,converged,timeToConvergence) 
             !
         END IF
         !
@@ -237,7 +237,7 @@ IF (SwitchMixedStrategies(1) .GT. 0) THEN
     !
     FileName = "ConvResults_" // ModelName
     FileNameMSR = 'MSRes'
-!    i = 1+INT(LOG10(DBLE(numModels)))
+!    i = 1+INT(LOG10(DBLE(totModels)))
     OPEN(UNIT = 100022,FILE = FileName,READONLY,IOSTAT = errcode)
     DO iAgent = 1, numAgents
         !
@@ -257,7 +257,7 @@ IF (SwitchMixedStrategies(1) .GT. 0) THEN
         MExpl(iAgent) = beta_tmp(iAgent)
         delta(iAgent) = delta_tmp(iAgent)
         !
-        WRITE(ModelNumber, "(I0.<1+INT(LOG10(DBLE(numModels)))>, A4)") SwitchMixedStrategies(iAgent)
+        WRITE(ModelNumber, "(I0.<1+INT(LOG10(DBLE(totModels)))>, A4)") SwitchMixedStrategies(iAgent)
         FileNameMSR = TRIM(FileNameMSR) // '_'
         FileNameMSR = TRIM(FileNameMSR) // ModelNumber
         !

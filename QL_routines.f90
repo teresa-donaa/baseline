@@ -29,7 +29,7 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    INTEGER :: iAgent, iPrice, iState, i, h, status
+    INTEGER :: iAgent, jAgent, iPrice, iState, i, h, status
     INTEGER :: tied(numPrices), Strategy(numStates,numAgents)
     INTEGER :: VisitedStates(numPeriods), PreCycleLength, CycleLength
     REAL(8) :: den, u
@@ -44,9 +44,13 @@ CONTAINS
         !
         IF (typeQInitialization(iAgent) .EQ. 'F') THEN
             !
-            ! Assuming strategies fixed at action "QMatrixInitializationF"
+            ! Assuming strategies fixed at action "parQInitialization(iAgent,:)"
             !
-            Strategy = QMatrixInitializationF(iAgent)
+            DO jAgent = 1, numAgents
+                !
+                Strategy(:,jAgent) = NINT(parQInitialization(iAgent,jAgent))
+                !
+            END DO
             DO iState = 1, numStates            ! Start of loop over states
                 !
                 ! Compute state value function for Strategy in iState, for all prices
@@ -74,9 +78,9 @@ CONTAINS
         ELSE IF (typeQInitialization(iAgent) .EQ. 'T') THEN
             !
             ! Start from a randomly drawn Q matrix at convergence 
-            ! on model "QMatrixInitializationT(iAgent)"
+            ! on model "parQInitialization(iAgent,1)"
             !
-            WRITE(codModelChar,'(I0.5)') QMatrixInitializationT(iAgent)
+            WRITE(codModelChar,'(I0.5)') NINT(parQInitialization(iAgent,1))
             i = 1+INT(DBLE(numGames)*ran2(idumQ,ivQ,iyQ,idum2Q))
             WRITE(iChar,'(I0.5)') i
             QFileName = 'Q_' // codModelChar // '_' // iChar // '.txt'
@@ -98,7 +102,7 @@ CONTAINS
         ELSE IF (typeQInitialization(iAgent) .EQ. 'R') THEN
             !
             ! Randomly initialized Q matrix using a uniform distribution between 
-            ! QMatrixInitializationR(2,iAgent) and QMatrixInitializationR(1,iAgent)
+            ! parQInitialization(iAgent,1) and parQInitialization(iAgent,2)
             !
             DO iState = 1, numStates
                 !
@@ -109,14 +113,14 @@ CONTAINS
                 END DO
                 !
             END DO
-            Q(:,:,iAgent) = QMatrixInitializationR(1,iAgent)+ &
-                (QMatrixInitializationR(2,iAgent)-QMatrixInitializationR(1,iAgent))*Q(:,:,iAgent)
+            Q(:,:,iAgent) = parQInitialization(iAgent,1)+ &
+                (parQInitialization(iAgent,2)-parQInitialization(iAgent,1))*Q(:,:,iAgent)
             !
         ELSE IF (typeQInitialization(iAgent) .EQ. 'U') THEN
             !
-            ! Constant Q matrix with all elements set to QMatrixInitializationU(iAgent)
+            ! Constant Q matrix with all elements set to parQInitialization(iAgent,1)
             !
-            Q(:,:,iAgent) = QMatrixInitializationU(iAgent)
+            Q(:,:,iAgent) = parQInitialization(iAgent,1)
             !
         END IF
         !
@@ -390,83 +394,6 @@ CONTAINS
     ! Ending execution and returning control
     !
     END FUNCTION computeStrategyNumber
-! 
-! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-!
-    SUBROUTINE computeIndicators ( iModel, converged, timeToConvergence ) 
-    !
-    ! Computes the output indicators from the resilts of a simulation experiment
-    !
-    IMPLICIT NONE
-    !
-    ! Declaring dummy variables
-    !
-    INTEGER, INTENT(IN) :: iModel
-    INTEGER, INTENT(IN) :: converged(numGames)
-    REAL(8), DIMENSION(numGames), INTENT(IN) :: timeToConvergence
-    !
-    ! Declaring local variables 
-    !
-    INTEGER :: i, j, h, l, iAgent
-    LOGICAL :: maskConverged(numGames)
-    INTEGER :: numGamesConverged
-    REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
-    !
-    ! Beginning execution
-    !
-    ! Preliminaries
-    !
-    numGamesConverged = SUM(converged)
-    maskConverged = (converged .EQ. 1)
-    meanNashProfit = SUM(NashProfits)/numAgents
-    meanCoopProfit = SUM(CoopProfits)/numAgents
-    !
-    ! Time to convergence
-    !
-    meanTimeToConvergence = SUM(timeToConvergence,MASK = maskConverged)/numGamesConverged
-    seTimeToConvergence = &
-        SQRT(SUM(timeToConvergence**2,MASK = maskConverged)/numGamesConverged-meanTimeToConvergence**2)
-    medianTimeToConvergence = median(timeToConvergence)
-    !
-    ! Print output
-    !
-    IF (iModel .EQ. 1) THEN
-        !
-        WRITE(10002,891) (i, i = 1, numAgents), (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
-            (i, i = 1, numDemandParameters), &
-            (i, i = 1, numAgents), (i, i = 1, numAgents), &
-            (i, i = 1, numAgents), (i, i = 1, numAgents),  &
-            (i, i = 1, numAgents), (i, i = 1, numAgents),  &
-            ((i, j, j = 1, numPrices), i = 1, numAgents)
-891         FORMAT('Model ', &
-            <numAgents>('    alpha', I1, ' '), &
-            <numExplorationParameters>('     beta', I1, ' '), &
-            <numAgents>('    delta', I1, ' '), <numDemandParameters>('  DemPar', I0.2, ' '), &
-            <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
-            <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
-            <numAgents>('NashMktSh', I1, ' '), <numAgents>('CoopMktSh', I1, ' '), &
-            <numAgents>(<numPrices>('Ag', I1, 'Price', I0.2, ' ')), &
-            '   numConv ', &
-            '    avgTTC      seTTC     medTTC ')
-        !
-    END IF
-    !
-    WRITE(10002,991) iModel, &
-        alpha, MExpl, delta, DemandParameters, &
-        NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
-        (PricesGrids(:,i), i = 1, numAgents), &
-        numGamesConverged, &
-        meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
-991 FORMAT(I5, 1X, &
-        <3*numAgents+numDemandParameters>(F10.5, 1X), &
-        <6*numAgents>(F10.5, 1X), &
-        <numPrices*numAgents>(F10.7, 1X), &
-        I10, 1X, &
-        <3>(F10.2, 1X))
-    !
-    ! Ending execution and returning control
-    !
-    END SUBROUTINE computeIndicators
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

@@ -18,7 +18,7 @@ REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
 !
 ! Variables
 !
-INTEGER :: numModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
+INTEGER :: numModels, totModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
     itersInPerfMeasPeriod, printQ, printP, codModel, PerfMeasPeriodTime, numPrices, lengthFormatActionPrint, &
     typeExplorationMechanism, DepthState0, DepthState, LengthStates, lengthStatesPrint, numStates, lengthStrategies, &
     typePayoffInput, numAgents, numActions, numDemandParameters, numPeriods, &
@@ -31,17 +31,16 @@ CHARACTER(len = 50) :: ModelNumber, FileNameIndexStrategies, FileNameIndexLastSt
 INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
     indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
-    SwitchMixedStrategies(:), QMatrixInitializationT(:), QMatrixInitializationF(:)
+    SwitchMixedStrategies(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     maxValQ(:,:), NashPrices(:), CoopPrices(:), &
     PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), DiscountFactors(:,:), & 
     meanProfit(:), seProfit(:), meanProfitGain(:), seProfitGain(:), DemandParameters(:), &
     NashMarketShares(:), CoopMarketShares(:), PricesGrids(:,:), MExpl(:), ExplorationParameters(:), &
-    QMatrixInitializationR(:,:), QMatrixInitializationU(:)
+    parQInitialization(:,:)
 CHARACTER(len = :), ALLOCATABLE :: labelStates(:)
 CHARACTER(len = :), ALLOCATABLE :: QFileFolderName(:)
 CHARACTER(len = 1), ALLOCATABLE :: typeQInitialization(:)
-
 !
 CONTAINS
 !
@@ -65,7 +64,7 @@ CONTAINS
     ! Beginning execution
     !
     READ(unitNumber,'(1X)') 
-    READ(unitNumber,*) numModels
+    READ(unitNumber,*) numModels, totModels
     READ(unitNumber,'(1X)') 
     READ(unitNumber,*) numCores
     READ(unitNumber,'(1X)')
@@ -107,6 +106,7 @@ CONTAINS
     IF (typeExplorationMechanism .EQ. 1) numExplorationParameters = 1*numAgents           ! Constant 
     IF (typeExplorationMechanism .EQ. 2) numExplorationParameters = 1*numAgents           ! Exponentially decreasing (beta)
     IF (typeExplorationMechanism .EQ. 3) numExplorationParameters = 1*numAgents           ! Exponentially decreasing (m)
+    IF (typeExplorationMechanism .EQ. 4) numExplorationParameters = 2*numAgents           ! Boltzmann
     READ(unitNumber,'(1X)')
     !
     ! Read type of payoff input
@@ -116,22 +116,6 @@ CONTAINS
     IF (typePayoffInput .EQ. 1) numDemandParameters = 1+2                       ! gamma, extend
     IF (typePayoffInput .EQ. 2) numDemandParameters = 2*numAgents+4             ! a0, ai, ci, sigma, extend
     IF (typePayoffInput .EQ. 3) numDemandParameters = 2*numAgents+4             ! a0, ai, ci, sigma = 0, extend
-    READ(unitNumber,'(1X)')
-    !
-    ! Read type of Q matrix initialization
-    !
-    ALLOCATE(typeQInitialization(numAgents),QMatrixInitializationR(numAgents,2), &
-        QMatrixInitializationU(numAgents),QMatrixInitializationT(numAgents), &
-        QMatrixInitializationF(numAgents))
-    READ(unitNumber,*) typeQInitialization
-    DO iAgent = 1, numAgents
-        !
-        IF (typeQInitialization(iAgent) .EQ. 'R') READ(unitNumber,*) QMatrixInitializationR(iAgent,:)
-        IF (typeQInitialization(iAgent) .EQ. 'U') READ(unitNumber,*) QMatrixInitializationU(iAgent)
-        IF (typeQInitialization(iAgent) .EQ. 'T') READ(unitNumber,*) QMatrixInitializationT(iAgent)
-        IF (typeQInitialization(iAgent) .EQ. 'F') READ(unitNumber,*) QMatrixInitializationF(iAgent)
-        !
-    END DO
     READ(unitNumber,'(1X)')
     !
     ! Continue reading input settings
@@ -171,6 +155,7 @@ CONTAINS
         PI(numActions,numAgents),PIQ(numActions,numAgents),avgPI(numActions),avgPIQ(numActions), &
         indexNashPrices(numAgents),indexCoopPrices(numAgents), &
         NashPrices(numAgents),CoopPrices(numAgents), &
+        typeQInitialization(numAgents),parQInitialization(numAgents,2), &
         NashMarketShares(numAgents),CoopMarketShares(numAgents),PricesGrids(numPrices,numAgents))
     ALLOCATE(CHARACTER(len = 3+lengthStatesPrint) :: labelStates(numStates))
     ALLOCATE(CHARACTER(len = 200) :: QFileFolderName(numAgents))
@@ -206,8 +191,7 @@ CONTAINS
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
-        SwitchMixedStrategies,typeQInitialization,QMatrixInitializationR,QMatrixInitializationU, &
-        QMatrixInitializationT,QMatrixInitializationF)
+        SwitchMixedStrategies,typeQInitialization,parQInitialization)
     !
     ! Ending execution and returning control
     !
@@ -232,7 +216,8 @@ CONTAINS
     ! Beginning execution
     !
     READ(unitNumber,*) codModel, printQ, printP, alpha, MExpl, delta, &
-        DemandParameters, NashPrices, CoopPrices
+        DemandParameters, NashPrices, CoopPrices, &
+        (typeQInitialization(i), parQInitialization(i,:), i = 1, numAgents)
     IF (typeExplorationMechanism .EQ. 2) THEN
         !
         ExplorationParameters = MExpl
@@ -241,6 +226,11 @@ CONTAINS
         !
         ExplorationParameters = -DBLE(itersPerYear)/DBLE(numAgents+1)* &
             LOG(1.d0-(DBLE(numPrices-1)/DBLE(numPrices))**numAgents/(DBLE(numStates*numPrices)*MExpl))
+        !
+    ELSE IF (typeExplorationMechanism .EQ. 4) THEN
+        !
+        ExplorationParameters(:numAgents) = MExpl(:numAgents)
+        ExplorationParameters(numAgents+1:) = 1.d0-1.d1**MExpl(numAgents+1:)
         !
     END IF
     DiscountFactors = TRANSPOSE(RESHAPE((/ (delta**i, i = 0, numPeriods-1) /),(/ numAgents,numPeriods /)))
