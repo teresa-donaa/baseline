@@ -24,7 +24,7 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    INTEGER :: iGame, iAgent, iThres, i, j, &
+    INTEGER :: iGame, iAgent, iThres, i, j, iState, &
         OptimalStrategyVec(lengthStrategies), OptimalStrategy(numStates,numAgents), &
         CycleStates(numPeriods,numGames), CycleStatesGame(numPeriods), &
         CycleLengthGame, CycleLength(numGames), numCycleLength(0:numThresCycleLength), &
@@ -33,6 +33,7 @@ CONTAINS
     INTEGER :: flagEQAllGame, flagEQOnPathGame, flagEQOffPathGame
     INTEGER, DIMENSION(numAgents,numGames) :: flagBRAll, flagBROnPath, flagBROffPath
     INTEGER, DIMENSION(numGames) :: flagEQAll, flagEQOnPath, flagEQOffPath
+    INTEGER, DIMENSION(numAgents,numPeriods,numGames) :: CyclePrices
     !
     REAL(8) :: r_num
     REAL(8), DIMENSION(numAgents) :: freqBRAllGame, freqBROnPathGame, freqBROffPathGame
@@ -43,6 +44,7 @@ CONTAINS
     REAL(8), DIMENSION(0:numThresCycleLength) :: AvgFreqEQAll, AvgFreqEQOnPath, AvgFreqEQOffPath
     REAL(8), DIMENSION(0:numAgents,0:numThresCycleLength) :: AvgFlagBRAll, AvgFlagBROnPath, AvgFlagBROffPath
     REAL(8), DIMENSION(0:numThresCycleLength) :: AvgFlagEQAll, AvgFlagEQOnPath, AvgFlagEQOffPath
+    REAL(8), DIMENSION(numAgents,numPeriods,numGames) :: CycleProfits
     !
     LOGICAL :: cond(numGames), matcond(numAgents,numGames)
     !
@@ -57,37 +59,8 @@ CONTAINS
     !
     ! Reading strategies and states at convergence from file
     !
-    OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")    ! Open indexStrategies txt file
-    READ(998,*)     ! Skip 'converged' line
-    READ(998,*)     ! Skip 'timeToConvergence' line
-    DO i = 1, lengthStrategies
-        !
-        IF (MOD(i,10000) .EQ. 0) PRINT*, 'Read ', i, ' lines of indexStrategies'
-        READ(998,21) (indexStrategies(i,iGame), iGame = 1, numGames)
-    21  FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
-        !
-    END DO
-    CLOSE(UNIT = 998)                   ! Close indexStrategies txt file
-    !
-    OPEN(UNIT = 999,FILE = FileNamePriceCycles,STATUS = "OLD")     ! Open priceCycles txt file
-    DO iGame = 1, numGames
-        !
-        READ(999,22) CycleLength(iGame)
-    22  FORMAT(I8)    
-        !
-    END DO
-    PRINT*, 'Read Cycles Length'
-    CLOSE(UNIT = 999)                   ! Close priceCycles txt file
-    !
-    OPEN(UNIT = 999,FILE = FileNamePriceCycles,STATUS = "OLD")     ! Re-Open priceCycles txt file
-    DO iGame = 1, numGames
-        !
-        READ(999,23) CycleStates(:CycleLength(iGame),iGame)
-    23  FORMAT(9X, <CycleLength(iGame)>(I<lengthStatesPrint>, 1X))
-        !
-    END DO
-    PRINT*, 'Read Cycles States'
-    CLOSE(UNIT = 999)                   ! Re-Close priceCycles txt file
+    CALL ReadInfoModel(converged,timeToConvergence, & 
+        CycleLength,CycleStates,CyclePrices,CycleProfits,indexStrategies)
     !
     ! Beginning loop over games
     !
@@ -412,7 +385,7 @@ CONTAINS
             StateValueFunction = 0.d0
             DO iPrice = 1, numPrices            ! Start of loop over prices to compute a row of Q
                 !
-                CALL computeQcell(OptimalStrategy,iState,iPrice,iAgent,delta, &
+                CALL computeQCell(OptimalStrategy,iState,iPrice,iAgent,delta, &
                     StateValueFunction(iPrice),VisitedStates,PreCycleLength,CycleLength)
                 !
             END DO                              ! End of loop over prices

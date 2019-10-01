@@ -10,7 +10,7 @@ USE EquilibriumCheck
 USE QGapToMaximum
 USE PIGapToMaximum
 USE DetailedAnalysis
-USE MixedStrategiesResults
+!USE MixedStrategiesResults
 USE QL_routines
 USE PI_routines
 USE generic_routines
@@ -32,7 +32,7 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "figure_1_Boltzmann.txt"
+ModelName = "prova.txt"
 FileName = "A_mod_" // ModelName
 !
 OPEN(UNIT = 10001,FILE = FileName)
@@ -141,9 +141,7 @@ IF (SwitchMixedStrategies(1) .EQ. 0) THEN
         !
         i = 1+INT(LOG10(DBLE(totModels)))
         WRITE(ModelNumber, "(I0.<i>, A4)") codModel, ".txt"
-        FileNameIndexStrategies = "indexStrategiesTransposed_" // ModelNumber
-        FileNameIndexLastState = "indexLastState_" // ModelNumber
-        FileNamePriceCycles = "priceCycles_" // ModelNumber
+        FileNameInfoModel = "InfoModel_" // ModelNumber
         !
         ! Print message
         !
@@ -283,7 +281,7 @@ IF (SwitchMixedStrategies(1) .GT. 0) THEN
     ! Compute results
     !
     OPEN(UNIT = 111,FILE = FileNameMSR)
-    CALL ComputeMixStratResults ( )
+!    CALL ComputeMixStratResults ( )
     CLOSE(UNIT = 111)
     !
     ! Deallocate variables

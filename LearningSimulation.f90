@@ -69,6 +69,10 @@ CONTAINS
         !
     END IF
     !
+    ! Open InfoModel file
+    !
+    OPEN(UNIT = 996,FILE = FileNameInfoModel,STATUS = "REPLACE")
+    !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Loop over numGames
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -297,11 +301,11 @@ CONTAINS
         !
         ! Write Q matrices to file
         !
-        !$omp critical
         IF (printQ .EQ. 1) THEN
             !
             ! Open Q matrices output file
             !
+            !$omp critical
             WRITE(iGamesChar,'(I0.5)') iGame
             QFileName = 'Q_' // codModelChar // '_' // iGamesChar // '.txt'
             !
@@ -318,16 +322,32 @@ CONTAINS
                 !
             END DO
             CLOSE(UNIT = iGame)
+            !$omp end critical
             !
         END IF
-        !$omp end critical
         !
         ! Record results at convergence
         !
         converged(iGame) = convergedGame
-        indexStrategies(:,iGame) = computeStrategyNumber(strategyFix)
-        indexLastState(:,iGame) = convertNumberBase(stateFix-1,numPrices,LengthStates)
         timeToConvergence(iGame) = DBLE(iItersFix-itersInPerfMeasPeriod)/itersPerYear
+        indexLastState(:,iGame) = convertNumberBase(stateFix-1,numPrices,LengthStates)
+        indexStrategies(:,iGame) = computeStrategyNumber(strategyFix)
+        !
+        ! Print InfoModel file
+        !
+        !$omp critical
+        WRITE(996,9961) iGame
+9961    FORMAT(1X, I8)
+        WRITE(996,992) converged(iGame)
+992     FORMAT(<numGames>(1X, I1))
+        WRITE(996,993) timeToConvergence(iGame)
+993     FORMAT(<numGames>(1X, F9.2))  
+        WRITE(996,9962) indexLastState(:,iGame)
+9962    FORMAT(<lengthStates>(1X, I<lengthFormatActionPrint>))
+        strategy = RESHAPE(indexStrategies(:,iGame), (/ numStates, numAgents /))
+        WRITE(996,996) (strategy(iState,:), iState = 1, numStates)
+996     FORMAT(<numStates>(<numAgents>(1X, I<lengthFormatActionPrint>), /))
+        !$omp end critical
         !
         IF (convergedGame .EQ. 1) PRINT*, 'Game = ', iGame, ' converged'
         IF (convergedGame .EQ. 0) PRINT*, 'Game = ', iGame, ' did not converge'
@@ -336,6 +356,10 @@ CONTAINS
         !
     END DO
     !$omp end parallel do
+    !
+    ! Close InfoModel file
+    !
+    CLOSE(UNIT = 996)
     !
     ! Print P trajectories, if required
     !
@@ -367,30 +391,6 @@ CONTAINS
         CLOSE(UNIT = 991)
         !
     END IF
-    !
-    ! Print indexStrategies and indexLastState to file
-    !
-    OPEN(UNIT = 996,FILE = FileNameIndexStrategies,STATUS = "REPLACE")
-    WRITE(996,992) converged
-992 FORMAT(<numGames>(I1, 1X))
-    WRITE(996,993) timeToConvergence
-993 FORMAT(<numGames>(F9.2, 1X))        
-    DO i = 1, lengthStrategies
-        !
-        WRITE(996,996) indexStrategies(i,:)
-996     FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
-        !
-    END DO
-    CLOSE(UNIT = 996)
-    !    
-    OPEN(UNIT = 999,FILE = FileNameIndexLastState,STATUS = "REPLACE")
-    DO iGame = 1, numGames
-        !
-        WRITE(999,999) indexLastState(:,iGame), converged(iGame), timeToConvergence(iGame)
-999     FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X), I3, 1X, ES12.5, 1X)
-        !
-    END DO
-    CLOSE(UNIT = 999)
     !
     ! Prints the RES output file
     !

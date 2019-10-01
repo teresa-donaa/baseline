@@ -57,7 +57,7 @@ CONTAINS
                 !
                 DO iPrice = 1, numPrices            ! Start of loop over prices to compute a row of Q
                     !
-                    CALL computeQcell(Strategy,iState,iPrice,iAgent,delta, &
+                    CALL computeQCell(Strategy,iState,iPrice,iAgent,delta, &
                         Q(iState,iPrice,iAgent),VisitedStates,PreCycleLength,CycleLength)
                     !
                 END DO                              ! End of loop over prices to compute a row of Q
@@ -478,7 +478,68 @@ CONTAINS
     !
     ! Ending execution and returning control
     !
-    END SUBROUTINE computeQcell
+        END SUBROUTINE computeQCell
+! 
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    SUBROUTINE ReadInfoModel ( converged, timeToConvergence, CycleLength, &
+        CycleStates, CyclePrices, CycleProfits, indexStrategies )
+    !
+    ! Reads the InfoModel txt file
+    !
+    ! INPUT:
+    !
+    ! None
+    !
+    ! OUTPUT:
+    !
+    ! - converged           : numGames array, = 1 if replication converged, = 0 otherwise
+    ! - timeToConvergence   : numGames array of number of iterations to convergence (/ItersPerYear)
+    ! - CycleLength         : numGames array of the length of the cycles at convergence
+    ! - CycleStates         : numPeriods x numGames array of states in the cycles at convergence
+    ! - CyclePrices         : numAgents x numPeriods x numGames array of prices in the cycles at convergence
+    ! - CycleProfits        : numAgents x numPeriods x numGames array of profits in the cycles at convergence
+    ! - indexStrategies     : lengthStrategies x numGames array of strategies at convergence 
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    !
+    !
+    INTEGER, DIMENSION(numGames), INTENT(OUT) :: converged, CycleLength
+    REAL(8), INTENT(OUT) :: timeToConvergence(numGames)
+    INTEGER, DIMENSION(numPeriods,numGames), INTENT(OUT) :: CycleStates
+    INTEGER, DIMENSION(numAgents,numPeriods,numGames), INTENT(OUT) :: CyclePrices
+    REAL(8), DIMENSION(numAgents,numPeriods,numGames), INTENT(OUT) :: CycleProfits
+    INTEGER, DIMENSION(lengthStrategies,numGames), INTENT(OUT) :: indexStrategies
+    !
+    ! Declaring local variables
+    !
+    INTEGER :: iGame, rGame, iCycle, iState, iAgent
+    !
+    ! Beginning execution
+    !
+    OPEN(UNIT = 998,FILE = FileNameInfoModel,STATUS = "OLD")    ! Open InfoModel file    
+    DO iGame = 1, numGames
+        !
+        IF (MOD(iGame,100) .EQ. 0) PRINT*, 'Read ', iGame, ' strategies'
+        READ(998,*) rGame
+        READ(998,*) converged(iGame)
+        READ(998,*) timeToConvergence(iGame)
+        READ(998,*) CycleLength(iGame)
+        READ(998,*) CycleStates(:CycleLength(iGame),iGame)
+        READ(998,*) ((CyclePrices(iAgent,iCycle,iGame), iCycle = 1, CycleLength(iGame)), iAgent = 1, numAgents)
+        READ(998,*) ((CycleProfits(iAgent,iCycle,iGame), iCycle = 1, CycleLength(iGame)), iAgent = 1, numAgents)
+        READ(998,21) ((indexStrategies((iAgent-1)*numStates+iState,iGame), iAgent = 1, numAgents), iState = 1, numStates)
+21      FORMAT(<numStates>(<numAgents>(1X, I<lengthFormatActionPrint>), /))
+        !
+    END DO
+    CLOSE(UNIT = 998)                   ! Close indexStrategies txt file
+    PRINT*, 'Finished reading InfoModel'
+    !
+    ! Ending execution and returning control
+    !
+END SUBROUTINE ReadInfoModel
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

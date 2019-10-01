@@ -29,16 +29,20 @@ CONTAINS
     INTEGER :: iPeriod, iGame, iState, iAgent, iPrice, iThres, i, j, PathCycleStates(numPeriods), &
         PathCycleLength(numGames), OptimalStrategy(numStates,numAgents), lastObservedStateNumber, &
         p(DepthState,numAgents), pPrime(numAgents), OptimalPrice, &
-        VisitedStates(numPeriods), PreCycleLength, CycleLength, &
+        VisitedStates(numPeriods), PreCycleLength, GameCycleLength, &
         PossibleActions(numPrices), PriceVector(numPrices)
     INTEGER, DIMENSION(0:numThresPathCycleLength,0:numAgents) :: NumAvgPIGapTot, NumAvgPIGapOnPath, &
         NumAvgPIGapNotOnPath, NumAvgPIGapNotBRAllStates, NumAvgPIGapNotBRonPath, NumAvgPIGapNotEqAllStates, NumAvgPIGapNotEqonPath
+    INTEGER, DIMENSION(numPeriods,numGames) :: CycleStates
+    INTEGER, DIMENSION(numGames) :: CycleLength    
+    INTEGER, DIMENSION(numAgents,numPeriods,numGames) :: CyclePrices
     REAL(8) :: VisitedProfits(numPeriods), MaxProfits(numPeriods), &
         AvgVisitedProfits(numStates,numAgents), AvgMaxProfits(numStates,numAgents), &
         AvgPIGap(numStates,numAgents), AvgProfitGainGap(numStates,numAgents), &
         QTrue(numStates,numPrices,numAgents), QGap(numStates,numAgents), MaxQTrue(numStates,numAgents), tmp
     REAL(8), DIMENSION(0:numThresPathCycleLength,0:numAgents) :: SumAvgPIGapTot, SumAvgPIGapOnPath, &
         SumAvgPIGapNotOnPath, SumAvgPIGapNotBRAllStates, SumAvgPIGapNotBRonPath, SumAvgPIGapNotEqAllStates, SumAvgPIGapNotEqonPath
+    REAL(8), DIMENSION(numAgents,numPeriods,numGames) :: CycleProfits
     LOGICAL, DIMENSION(numStates,numAgents) :: IsOnPath, IsBRAllStates, IsBRonPath, IsEqAllStates, IsEqonPath
     LOGICAL, DIMENSION(numAgents) :: IsBR
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
@@ -69,26 +73,8 @@ CONTAINS
     !
     ! Reading strategies and states at convergence from file
     !
-    OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")    ! Open indexStrategies file
-    READ(998,*)     ! Skip 'converged' line
-    READ(998,*)     ! Skip 'timeToConvergence' line
-    DO i = 1, lengthStrategies
-        !
-        IF (MOD(i,10000) .EQ. 0) PRINT*, 'Read ', i, ' lines of indexStrategies'
-        READ(998,21) (indexStrategies(i,iGame), iGame = 1, numGames)
-    21  FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
-        !
-    END DO
-    CLOSE(UNIT = 998)                   ! Close indexStrategies file
-    OPEN(UNIT = 999,FILE = FileNameIndexLastState,STATUS = "OLD")     ! Open indexLastState file
-    DO iGame = 1, numGames
-        !
-        READ(999,22) indexLastState(:,iGame)
-    22  FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
-        !
-    END DO
-    PRINT*, 'Read indexLastState'
-    CLOSE(UNIT = 999)                   ! Close indexLastState file
+    CALL ReadInfoModel(converged,timeToConvergence, & 
+        CycleLength,CycleStates,CyclePrices,CycleProfits,indexStrategies)
     !
     ! Beginning loop over games
     !
@@ -97,7 +83,7 @@ CONTAINS
     !$omp   IsOnPath,IsBRAllStates,IsBRonPath,IsEqAllStates,IsEqonPath,IsBR,OptimalStrategyVec,LastStateVec, &
     !$omp   OptimalStrategy,lastObservedStateNumber,iState,iAgent, &
     !$omp   p,VisitedProfits,pPrime,OptimalPrice,VisitedStates,MaxProfits,iPeriod, &
-    !$omp   PossibleActions,iPrice,PriceVector,PreCycleLength,CycleLength,iThres,tmp,i) &
+    !$omp   PossibleActions,iPrice,PriceVector,PreCycleLength,GameCycleLength,iThres,tmp,i) &
     !$omp firstprivate(numGames,PI) &
     !$omp reduction(+ : SumAvgPIGapTot,SumAvgPIGapOnPath,SumAvgPIGapNotOnPath,SumAvgPIGapNotBRAllStates, &
     !$omp   SumAvgPIGapNotBRonPath,SumAvgPIGapNotEqAllStates,SumAvgPIGapNotEqonPath,NumAvgPIGapTot, &
@@ -144,15 +130,15 @@ CONTAINS
                     !
                     ! 1. Compute state value function for the optimal strategy in (iState,iPrice)
                     !
-                    CALL computeQcell(OptimalStrategy,iState,iPrice,iAgent,delta, &
-                        QTrue(iState,iPrice,iAgent),VisitedStates,PreCycleLength,CycleLength)
+                    CALL computeQCell(OptimalStrategy,iState,iPrice,iAgent,delta, &
+                        QTrue(iState,iPrice,iAgent),VisitedStates,PreCycleLength,GameCycleLength)
                     !
                     ! 2. Check if state is on path
                     !
                     IF ((iPrice .EQ. OptimalPrice) .AND. (iState .EQ. lastObservedStateNumber)) THEN
                         !
-                        PathCycleStates(:CycleLength) = VisitedStates(PreCycleLength+1:PreCycleLength+CycleLength)
-                        PathCycleLength(iGame) = CycleLength
+                        PathCycleStates(:GameCycleLength) = VisitedStates(PreCycleLength+1:PreCycleLength+GameCycleLength)
+                        PathCycleLength(iGame) = GameCycleLength
                         !
                     END IF
                     !
@@ -210,7 +196,7 @@ CONTAINS
                     IF ((iPeriod .GE. 2) .AND. (ANY(VisitedStates(:iPeriod-1) .EQ. VisitedStates(iPeriod)))) THEN
                         !
                         PreCycleLength = MINVAL(MINLOC((VisitedStates(:iPeriod-1)-VisitedStates(iPeriod))**2))
-                        CycleLength = iPeriod-PreCycleLength
+                        GameCycleLength = iPeriod-PreCycleLength
                         EXIT
                         !
                     END IF
@@ -223,8 +209,8 @@ CONTAINS
                 !
                 ! 2. Compute AvgPI function value for (state,agent) triplet
                 !
-                AvgVisitedProfits(iState,iAgent) = SUM(VisitedProfits(PreCycleLength+1:iPeriod))/DBLE(CycleLength)
-                AvgMaxProfits(iState,iAgent) = SUM(MaxProfits(PreCycleLength+1:iPeriod))/DBLE(CycleLength)
+                AvgVisitedProfits(iState,iAgent) = SUM(VisitedProfits(PreCycleLength+1:iPeriod))/DBLE(GameCycleLength)
+                AvgMaxProfits(iState,iAgent) = SUM(MaxProfits(PreCycleLength+1:iPeriod))/DBLE(GameCycleLength)
                 !
                 ! Compute gap in AvgPI function values w.r.t. maximum
                 !

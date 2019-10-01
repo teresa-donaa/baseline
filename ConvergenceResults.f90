@@ -23,12 +23,13 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    INTEGER :: i, j, iGame, iPeriod, iAgent, CycleLength
+    INTEGER :: i, j, iGame, rGame, iPeriod, iState, iAgent, CycleLength
     INTEGER :: p(DepthState,numAgents), pPrime(numAgents)
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     INTEGER :: VisitedStates(numPeriods), OptimalStrategy(numStates,numAgents), &
         LastObservedPrices(DepthState,numAgents)
-    INTEGER :: pHist(numPeriods,numAgents)
+    INTEGER :: pHist(numPeriods,numAgents), converged(numGames)
+    REAL(8) :: timeToConvergence(numGames)
     REAL(8) :: Profits(numGames,numAgents), VisitedProfits(numPeriods,numAgents), AvgProfits(numGames)
     REAL(8), DIMENSION(numAgents) :: meanProfits, seProfit, meanProfitGain, seProfitGain
     REAL(8) :: meanAvgProfit, seAvgProfit, meanAvgProfitGain, seAvgProfitGain
@@ -45,30 +46,21 @@ CONTAINS
     !
     ! Reading strategies and states at convergence from file
     !
-    OPEN(UNIT = 998,FILE = FileNameIndexStrategies,STATUS = "OLD")
-    READ(998,*)     ! Skip 'converged' line
-    READ(998,*)     ! Skip 'timeToConvergence' line
-20  FORMAT(//)    
-    DO i = 1, lengthStrategies
-        !
-        IF (MOD(i,10000) .EQ. 0) PRINT*, 'Read ', i, ' lines of indexStrategies'
-        READ(998,21) (indexStrategies(i,iGame), iGame = 1, numGames)
-21      FORMAT(<numGames>(I<lengthFormatActionPrint>,1X))
-        !
-    END DO
-    CLOSE(UNIT = 998)                   ! Close indexStrategies file
-    !
-    OPEN(UNIT = 999,FILE = FileNameIndexLastState,STATUS = "OLD")     ! Open indexLastState file
+    OPEN(UNIT = 998,FILE = FileNameInfoModel,STATUS = "OLD")
     DO iGame = 1, numGames
         !
-        READ(999,22) indexLastState(:,iGame)
-22      FORMAT(<LengthStates>(I<lengthFormatActionPrint>,1X))
+        IF (MOD(iGame,100) .EQ. 0) PRINT*, 'Read ', iGame, ' strategies'
+        READ(998,*) rGame
+        READ(998,*) converged(rGame)
+        READ(998,*) timeToConvergence(rGame)
+        READ(998,*) indexLastState(:,rGame)
+        READ(998,21) ((indexStrategies((iAgent-1)*numStates+iState,rGame), iAgent = 1, numAgents), iState = 1, numStates)
+21      FORMAT(<numStates>(<numAgents>(1X, I<lengthFormatActionPrint>), /))
         !
     END DO
-    PRINT*, 'Read indexLastState'
-    CLOSE(UNIT = 999)                   ! Close indexLastState file
+    CLOSE(UNIT = 998)                   ! Close InfoModel file
     !
-    OPEN(UNIT = 999,FILE = FileNamePriceCycles,STATUS = "REPLACE")        ! Open priceCycles file
+    OPEN(UNIT = 999,FILE = FileNameInfoModel,STATUS = "REPLACE")        ! Open InfoModel file
     !
     ! Beginning loop over games
     !
@@ -134,14 +126,25 @@ CONTAINS
         VisitedStates(CycleLength+1:) = 0
         VisitedProfits(:CycleLength,:) = VisitedProfits(iPeriod-CycleLength+1:iPeriod,:)
         VisitedProfits(CycleLength+1:,:) = 0.d0
-        WRITE(999,211) CycleLength, &
+        !
+        ! Write game info to InfoModel file
+        !
+        WRITE(999,9961) iGame, &
+            converged(iGame), &
+            timeToConvergence(iGame), &
+            CycleLength, &
             VisitedStates(:CycleLength), &
             (pHist(:CycleLength,iAgent), iAgent = 1, numAgents), &
-            (VisitedProfits(:CycleLength,iAgent), iAgent = 1, numAgents)
-211     FORMAT(I8, 1X, &
-            <CycleLength>(I<lengthStatesPrint>,1X), &
-            <numAgents>(<CycleLength>(I<lengthFormatActionPrint>,1X)), &
-            <numAgents>(<CycleLength>(F8.5, 1X)))
+            (VisitedProfits(:CycleLength,iAgent), iAgent = 1, numAgents), &
+            (OptimalStrategy(iState,:), iState = 1, numStates)
+9961    FORMAT(1X, I8, /, &
+            1X, I1, /, &
+            1X, F9.2, /, &
+            1X, I8, /, &
+            <CycleLength>(1X, I<lengthStatesPrint>), /, &
+            <numAgents>(<CycleLength>(1X, I<lengthFormatActionPrint>)), /, &
+            <numAgents>(<CycleLength>(1X, F8.5)), /, &
+            <numStates>(<numAgents>(1X, I<lengthFormatActionPrint>), /))
         !
     END DO        ! End of loop over games
     !
