@@ -28,7 +28,7 @@ CONTAINS
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     INTEGER :: VisitedStates(numPeriods), OptimalStrategy(numStates,numAgents), &
         LastObservedPrices(DepthState,numAgents)
-    INTEGER :: pHist(numPeriods,numAgents), converged(numGames)
+    INTEGER :: pHist(numPeriods,numAgents), converged(numGames), indexLastState(LengthStates,numGames)
     REAL(8) :: timeToConvergence(numGames)
     REAL(8) :: Profits(numGames,numAgents), VisitedProfits(numPeriods,numAgents), AvgProfits(numGames)
     REAL(8), DIMENSION(numAgents) :: meanProfits, seProfit, meanProfitGain, seProfitGain
@@ -54,8 +54,11 @@ CONTAINS
         READ(998,*) converged(rGame)
         READ(998,*) timeToConvergence(rGame)
         READ(998,*) indexLastState(:,rGame)
-        READ(998,21) ((indexStrategies((iAgent-1)*numStates+iState,rGame), iAgent = 1, numAgents), iState = 1, numStates)
-21      FORMAT(<numStates>(<numAgents>(1X, I<lengthFormatActionPrint>), /))
+        DO iState = 1, numStates
+            !
+            READ(998,*) (indexStrategies((iAgent-1)*numStates+iState,rGame), iAgent = 1, numAgents)
+            !
+        END DO
         !
     END DO
     CLOSE(UNIT = 998)                   ! Close InfoModel file

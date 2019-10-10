@@ -12,8 +12,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE computeModel ( iModel, codModel, alpha, ExplorationParameters, delta, &
-        converged, indexLastState, timeToConvergence )
+    SUBROUTINE computeModel ( iModel, codModel, alpha, ExplorationParameters, delta )
     !
     ! Computes statistics for one model
     !
@@ -24,9 +23,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: iModel, codModel
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: alpha, delta
     REAL(8), DIMENSION(numExplorationParameters) :: ExplorationParameters
-    INTEGER, DIMENSION(numGames), INTENT(OUT) :: converged
-    INTEGER, INTENT(OUT) :: indexLastState(LengthStates,numGames)
-    REAL(8), DIMENSION(numGames), INTENT(OUT) :: timeToConvergence
     !
     ! Declaring local variable
     !
@@ -37,6 +33,9 @@ CONTAINS
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies, sizePrintPMat
+    INTEGER :: indexLastState(LengthStates)
+    INTEGER, DIMENSION(numGames) :: converged
+    REAL(8), DIMENSION(numGames) :: timeToConvergence
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
     REAL(8) :: u(2), eps(numAgents), temp(numAgents)
@@ -55,7 +54,6 @@ CONTAINS
     !
     converged = 0    
     indexStrategies = 0
-    indexLastState = 0
     timeToConvergence = 0.d0
     i = 1+INT(LOG10(DBLE(totModels)))
     WRITE(codModelChar,'(I0.<i>)') codModel
@@ -90,7 +88,7 @@ CONTAINS
     ! Starting loop over games
     !
     !$omp parallel do &
-    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ,temp, &
+    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ,temp,indexLastState, &
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersFix,iItersInStrategy,convergedGame, &
     !$omp   state,stateFix,strategy,strategyFix,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar,RowPMat,RowPMatQ) &
@@ -330,23 +328,21 @@ CONTAINS
         !
         converged(iGame) = convergedGame
         timeToConvergence(iGame) = DBLE(iItersFix-itersInPerfMeasPeriod)/itersPerYear
-        indexLastState(:,iGame) = convertNumberBase(stateFix-1,numPrices,LengthStates)
+        indexLastState = convertNumberBase(stateFix-1,numPrices,LengthStates)
         indexStrategies(:,iGame) = computeStrategyNumber(strategyFix)
         !
         ! Print InfoModel file
         !
         !$omp critical
-        WRITE(996,9961) iGame
-9961    FORMAT(1X, I8)
-        WRITE(996,992) converged(iGame)
-992     FORMAT(<numGames>(1X, I1))
-        WRITE(996,993) timeToConvergence(iGame)
-993     FORMAT(<numGames>(1X, F9.2))  
-        WRITE(996,9962) indexLastState(:,iGame)
-9962    FORMAT(<lengthStates>(1X, I<lengthFormatActionPrint>))
-        strategy = RESHAPE(indexStrategies(:,iGame), (/ numStates, numAgents /))
-        WRITE(996,996) (strategy(iState,:), iState = 1, numStates)
-996     FORMAT(<numStates>(<numAgents>(1X, I<lengthFormatActionPrint>), /))
+        WRITE(996,*) iGame
+        WRITE(996,*) convergedGame
+        WRITE(996,*) timeToConvergence(iGame)
+        WRITE(996,*) indexLastState
+        DO iState = 1, numStates
+            !
+            WRITE(996,*) strategyFix(iState,:)
+            !
+        END DO
         !$omp end critical
         !
         IF (convergedGame .EQ. 1) PRINT*, 'Game = ', iGame, ' converged'

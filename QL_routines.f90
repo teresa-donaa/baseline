@@ -530,8 +530,11 @@ CONTAINS
         READ(998,*) CycleStates(:CycleLength(iGame),iGame)
         READ(998,*) ((CyclePrices(iAgent,iCycle,iGame), iCycle = 1, CycleLength(iGame)), iAgent = 1, numAgents)
         READ(998,*) ((CycleProfits(iAgent,iCycle,iGame), iCycle = 1, CycleLength(iGame)), iAgent = 1, numAgents)
-        READ(998,21) ((indexStrategies((iAgent-1)*numStates+iState,iGame), iAgent = 1, numAgents), iState = 1, numStates)
-21      FORMAT(<numStates>(<numAgents>(1X, I<lengthFormatActionPrint>), /))
+        DO iState = 1, numStates
+            !
+            READ(998,*) (indexStrategies((iAgent-1)*numStates+iState,iGame), iAgent = 1, numAgents)
+            !
+        END DO
         !
     END DO
     CLOSE(UNIT = 998)                   ! Close indexStrategies txt file

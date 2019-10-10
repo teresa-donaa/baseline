@@ -13,8 +13,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE computeModelRestart ( iModel, codModel, alpha, ExplorationParameters, delta, &
-        converged, indexLastState, timeToConvergence )
+    SUBROUTINE computeModelRestart ( iModel, codModel, alpha, ExplorationParameters, delta )
     !
     ! Computes statistics for one model
     !
@@ -25,9 +24,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: iModel, codModel
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: alpha, delta
     REAL(8), DIMENSION(numExplorationParameters) :: ExplorationParameters
-    INTEGER, DIMENSION(numGames), INTENT(OUT) :: converged
-    INTEGER, INTENT(OUT) :: indexLastState(LengthStates,numGames)
-    REAL(8), DIMENSION(numGames), INTENT(OUT) :: timeToConvergence
     !
     ! Declaring local variable
     !
@@ -38,6 +34,9 @@ CONTAINS
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies
+    INTEGER :: indexLastState(LengthStates)
+    INTEGER, DIMENSION(numGames) :: converged
+    REAL(8), DIMENSION(numGames) :: timeToConvergence
     REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
@@ -54,7 +53,6 @@ CONTAINS
     ! Initializing various quantities
     !
     converged = 0    
-    indexLastState = 0
     timeToConvergence = 0.d0
     WRITE(codModelChar,'(I0.5)') codModel
     !
@@ -372,7 +370,7 @@ CONTAINS
         ! Record results at convergence
         !
         converged(iGame) = convergedGame
-        indexLastState(:,iGame) = convertNumberBase(state-1,numPrices,LengthStates)
+        indexLastState = convertNumberBase(state-1,numPrices,LengthStates)
         timeToConvergence(iGame) = DBLE(iIters-itersInPerfMeasPeriod)/itersPerYear
         !
         ! End of loop over games

@@ -71,7 +71,7 @@ CONTAINS
     ! Beginning loop over games
     !
     !$omp parallel do &
-    !$omp private(OptimalStrategyVec,CycleLengthGame,CycleStatesGame,OptimalStrategy,
+    !$omp private(OptimalStrategyVec,CycleLengthGame,CycleStatesGame,OptimalStrategy, &
     !$omp   QGapTotGame,QGapOnPathGame,QGapNotOnPathGame,QGapNotBRAllStatesGame, &
     !$omp   QGapNotBRonPathGame,QGapNotEqAllStatesGame,QGapNotEqonPathGame,iThres) &
     !$omp reduction(+ : SumQGapTot,SumQGapOnPath,SumQGapNotOnPath,SumQGapNotBRAllStates,SumQGapNotBRonPath, &

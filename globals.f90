@@ -12,7 +12,7 @@ INTEGER, PARAMETER :: numShockPeriodsPrint = 10
 INTEGER, PARAMETER :: numThresCycleLength = 10
 !
 REAL(8), PARAMETER :: SlackOnPath = -0.05d0
-REAL(8), PARAMETER :: SlackOffPath = 0.05d0
+REAL(8), PARAMETER :: SlackOffPath = -0.05d0
 REAL(8), PARAMETER :: twoOverPi = 0.636619772367581343075535053490d0    ! 2/Pi
 REAL(8), PARAMETER :: piOverTwo = 1.57079632679489661923132169164d0     ! Pi/2
 !
@@ -28,7 +28,7 @@ INTEGER :: numModels, totModels, numCores, numGames, itersPerYear, maxNumYears, 
 REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit, gammaSinghVives
 CHARACTER(len = 50) :: ModelNumber, FileNameInfoModel
 !
-INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexLastState(:,:), indexStrategies(:,:), &
+INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexStrategies(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
     indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
     SwitchMixedStrategies(:)

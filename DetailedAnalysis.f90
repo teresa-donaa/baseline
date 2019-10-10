@@ -158,7 +158,7 @@ CONTAINS
         !
         CALL computeQGapToMaxGame(OptimalStrategy,PeriodsLengthPre,CycleStates(:PeriodsLengthPre,iGame), &
             QGapTotGame,QGapOnPathGame,QGapNotOnPathGame,QGapNotBRAllStatesGame, &
-            QGapNotBRonPathGame,QGapNotEqAllStatesGame,QGapNotEqonPathGame)
+           QGapNotBRonPathGame,QGapNotEqAllStatesGame,QGapNotEqonPathGame)
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! IR analysis with deviation to iPrice

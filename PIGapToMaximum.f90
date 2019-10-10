@@ -98,7 +98,6 @@ CONTAINS
         !
         !$omp critical
         OptimalStrategyVec = indexStrategies(:,iGame)
-        LastStateVec = indexLastState(:,iGame)
         !$omp end critical
         !
         OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )

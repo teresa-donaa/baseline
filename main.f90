@@ -32,7 +32,7 @@ REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
 !
 ! Opening files
 !
-ModelName = "prova.txt"
+ModelName = "figure_1_Boltzmann.txt"
 FileName = "A_mod_" // ModelName
 !
 OPEN(UNIT = 10001,FILE = FileName)
@@ -120,7 +120,7 @@ IF (SwitchMixedStrategies(1) .EQ. 0) THEN
         !
         ! Creating the PI matrix
         !
-        ALLOCATE(indexStrategies(lengthStrategies,numGames),indexLastState(LengthStates,numGames))
+        ALLOCATE(indexStrategies(lengthStrategies,numGames))
         IF (typePayoffInput .EQ. 0) CALL computePIMatricesGiven(DemandParameters,NashPrices,CoopPrices,&
             PI,NashProfits,CoopProfits, &
             indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids)
@@ -154,13 +154,11 @@ IF (SwitchMixedStrategies(1) .EQ. 0) THEN
             !
             IF (SwitchRestart .EQ. 0) THEN
                 !
-                CALL computeModel(iModel,codModel,alpha,ExplorationParameters,delta, &
-                    converged,indexLastState,timeToConvergence)
+                CALL computeModel(iModel,codModel,alpha,ExplorationParameters,delta)
                 !
             ELSE IF (SwitchRestart .EQ. 1) THEN
                 !
-                CALL computeModelRestart(iModel,codModel,alpha,ExplorationParameters,delta, &
-                    converged,indexLastState,timeToConvergence)
+                CALL computeModelRestart(iModel,codModel,alpha,ExplorationParameters,delta)
                 !
             END IF
             !
@@ -178,8 +176,12 @@ IF (SwitchMixedStrategies(1) .EQ. 0) THEN
 !@SP
         !
         ! Impulse Response analysis to one-period deviation to static best response
+        ! NB: The last argument in computeIRAnalysis is "IRType", and it's crucial:
+        ! IRType < 0 : One-period deviation to the price IRType
+        ! IRType = 0 : One-period deviation to static BR
+        ! IRType > 0 : IRType-period deviation to Nash 
         ! 
-        IF (SwitchImpulseResponseToBR .EQ. 1) CALL computeIRAnalysis(iModel,10003,-1)
+        IF (SwitchImpulseResponseToBR .EQ. 1) CALL computeIRAnalysis(iModel,10003,0)
         !
         ! Impulse Response to a permanent or transitory deviation to Nash prices
         !
@@ -215,7 +217,7 @@ IF (SwitchMixedStrategies(1) .EQ. 0) THEN
         !
         ! Deallocate arrays
         !
-        DEALLOCATE(indexStrategies,indexLastState)
+        DEALLOCATE(indexStrategies)
         !    
         ! End of loop over models
         !
