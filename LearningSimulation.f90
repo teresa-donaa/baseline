@@ -33,12 +33,11 @@ CONTAINS
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies, sizePrintPMat
-    INTEGER :: indexLastState(LengthStates)
     INTEGER, DIMENSION(numGames) :: converged
     REAL(8), DIMENSION(numGames) :: timeToConvergence
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
-    REAL(8) :: u(2), eps(numAgents), temp(numAgents)
+    REAL(8) :: u(2), eps(numAgents)
     REAL(8) :: newq, oldq, profitgain(numAgents)
     REAL(8), DIMENSION(0:itersPerYear,numAgents+1) :: printPMat, printPMatQ
     REAL(8), DIMENSION(numAgents+1) :: RowPMat, RowPMatQ
@@ -54,6 +53,7 @@ CONTAINS
     !
     converged = 0    
     indexStrategies = 0
+    indexLastState = 0
     timeToConvergence = 0.d0
     i = 1+INT(LOG10(DBLE(totModels)))
     WRITE(codModelChar,'(I0.<i>)') codModel
@@ -66,10 +66,6 @@ CONTAINS
         printPMatQ = 0.d0
         !
     END IF
-    !
-    ! Open InfoModel file
-    !
-    OPEN(UNIT = 996,FILE = FileNameInfoModel,STATUS = "REPLACE")
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Loop over numGames
@@ -88,7 +84,7 @@ CONTAINS
     ! Starting loop over games
     !
     !$omp parallel do &
-    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ,temp,indexLastState, &
+    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersFix,iItersInStrategy,convergedGame, &
     !$omp   state,stateFix,strategy,strategyFix,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar,RowPMat,RowPMatQ) &
@@ -132,7 +128,8 @@ CONTAINS
         iIters = 0
         iItersInStrategy = 0
         convergedGame = -1
-        temp = ExplorationParameters(:numAgents)
+        IF ((typeExplorationMechanism .EQ. 2) .OR. (typeExplorationMechanism .EQ. 3)) eps = ExplorationParameters(:numAgents)
+        IF (typeExplorationMechanism .EQ. 4) eps = ExplorationParameters(:numAgents)
         IF (printP .GT. 0) THEN
             !
             actionPrime = computeActionNumber(p(1,:))
@@ -162,7 +159,7 @@ CONTAINS
             !
             ! Compute pPrime by balancing exploration vs. exploitation
             !
-            CALL computePPrime(ExplorationParameters,uExploration,strategyPrime,state,iIters,pPrime,Q,temp)
+            CALL computePPrime(ExplorationParameters,uExploration,strategyPrime,state,iIters,pPrime,Q,eps)
             !
             ! Defining the new state
             !
@@ -328,22 +325,8 @@ CONTAINS
         !
         converged(iGame) = convergedGame
         timeToConvergence(iGame) = DBLE(iItersFix-itersInPerfMeasPeriod)/itersPerYear
-        indexLastState = convertNumberBase(stateFix-1,numPrices,LengthStates)
+        indexLastState(:,iGame) = convertNumberBase(stateFix-1,numPrices,LengthStates)
         indexStrategies(:,iGame) = computeStrategyNumber(strategyFix)
-        !
-        ! Print InfoModel file
-        !
-        !$omp critical
-        WRITE(996,*) iGame
-        WRITE(996,*) convergedGame
-        WRITE(996,*) timeToConvergence(iGame)
-        WRITE(996,*) indexLastState
-        DO iState = 1, numStates
-            !
-            WRITE(996,*) strategyFix(iState,:)
-            !
-        END DO
-        !$omp end critical
         !
         IF (convergedGame .EQ. 1) PRINT*, 'Game = ', iGame, ' converged'
         IF (convergedGame .EQ. 0) PRINT*, 'Game = ', iGame, ' did not converge'
@@ -353,8 +336,22 @@ CONTAINS
     END DO
     !$omp end parallel do
     !
-    ! Close InfoModel file
+    ! Print InfoModel file
     !
+    OPEN(UNIT = 996,FILE = FileNameInfoModel,STATUS = "REPLACE")
+    DO iGame = 1, numGames
+        !
+        WRITE(996,*) iGame
+        WRITE(996,*) converged(iGame)
+        WRITE(996,*) timeToConvergence(iGame)
+        WRITE(996,*) indexLastState(:,iGame)
+        DO iState = 1, numStates
+            !
+            WRITE(996,*) (indexStrategies((iAgent-1)*numStates+iState,iGame), iAgent = 1, numAgents)
+            !
+        END DO
+        !
+    END DO
     CLOSE(UNIT = 996)
     !
     ! Print P trajectories, if required
@@ -477,7 +474,7 @@ CONTAINS
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
     SUBROUTINE computePPrime ( ExplorationParameters, uExploration, strategyPrime, state, iIters, &
-        pPrime, Q, temp )
+        pPrime, Q, eps )
     !
     ! Computes pPrime by balancing exploration vs. exploitation
     !
@@ -491,12 +488,12 @@ CONTAINS
     INTEGER, INTENT(IN) :: state, iIters
     INTEGER, INTENT(OUT) :: pPrime(numAgents)
     REAL(8), INTENT(IN) :: Q(numStates,numPrices,numAgents)
-    REAL(8), INTENT(INOUT) :: temp(numAgents)
+    REAL(8), INTENT(INOUT) :: eps(numAgents)
     !
     ! Declaring local variables
     !
     INTEGER :: iAgent, iPrice
-    REAL(8) :: eps(numAgents), u(2), maxQ
+    REAL(8) :: u(2), maxQ
     REAL(8) :: probs(numPrices)
     !
     ! Beginning execution
@@ -525,27 +522,27 @@ CONTAINS
     !
     ! 2. & 3. Greedy with probability 1-epsilon, with exponentially decreasing epsilon
     !
-    IF (typeExplorationMechanism .GE. 2) THEN
+    IF ((typeExplorationMechanism .EQ. 2) .OR. (typeExplorationMechanism .EQ. 3)) THEN
         !
         DO iAgent = 1, numAgents
             !
-            IF (ExplorationParameters(iAgent) .LT. 0.d0) THEN
-                !
-                eps(iAgent) = 0.d0
-                !
-            ELSE
-                !
-                eps(iAgent) = EXP(-ExplorationParameters(iAgent)*DBLE(iIters-1)/DBLE(itersPerYear))
-                !
-            END IF
-            u = uExploration(:,iAgent)
-            IF (u(1) .LE. eps(iAgent)) THEN
-                !
-                pPrime(iAgent) = 1+INT(numPrices*u(2))
-                !
-            ELSE
+            IF (MExpl(numAgents+iAgent) .LT. 0.d0) THEN
                 !
                 pPrime(iAgent) = strategyPrime(state,iAgent)
+                !
+            ELSE
+                !
+                u = uExploration(:,iAgent)
+                IF (u(1) .LE. eps(iAgent)) THEN
+                    !
+                    pPrime(iAgent) = 1+INT(numPrices*u(2))
+                    !
+                ELSE
+                    !
+                    pPrime(iAgent) = strategyPrime(state,iAgent)
+                    !
+                END IF
+                eps(iAgent) = eps(iAgent)*ExplorationParameters(numAgents+iAgent)
                 !
             END IF
             !
@@ -560,7 +557,7 @@ CONTAINS
         DO iAgent = 1, numAgents
             !
             maxQ = MAXVAL(Q(state,:,iAgent))
-            probs = EXP((Q(state,:,iAgent)-maxQ)/temp(iAgent))
+            probs = EXP((Q(state,:,iAgent)-maxQ)/eps(iAgent))
             u = uExploration(:,iAgent)*SUM(probs)
             DO iPrice = 1, numPrices
                 !
@@ -573,7 +570,7 @@ CONTAINS
                 END IF
                 !
             END DO
-            temp(iAgent) = temp(iAgent)*ExplorationParameters(numAgents+iAgent)
+            eps(iAgent) = eps(iAgent)*ExplorationParameters(numAgents+iAgent)
             !
         END DO
         !

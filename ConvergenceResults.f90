@@ -28,7 +28,7 @@ CONTAINS
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     INTEGER :: VisitedStates(numPeriods), OptimalStrategy(numStates,numAgents), &
         LastObservedPrices(DepthState,numAgents)
-    INTEGER :: pHist(numPeriods,numAgents), converged(numGames), indexLastState(LengthStates,numGames)
+    INTEGER :: pHist(numPeriods,numAgents), converged(numGames)
     REAL(8) :: timeToConvergence(numGames)
     REAL(8) :: Profits(numGames,numAgents), VisitedProfits(numPeriods,numAgents), AvgProfits(numGames)
     REAL(8), DIMENSION(numAgents) :: meanProfits, seProfit, meanProfitGain, seProfitGain
@@ -140,7 +140,7 @@ CONTAINS
             (pHist(:CycleLength,iAgent), iAgent = 1, numAgents), &
             (VisitedProfits(:CycleLength,iAgent), iAgent = 1, numAgents), &
             (OptimalStrategy(iState,:), iState = 1, numStates)
-9961    FORMAT(1X, I8, /, &
+9961        FORMAT(1X, I8, /, &
             1X, I1, /, &
             1X, F9.2, /, &
             1X, I8, /, &

@@ -34,13 +34,12 @@ CONTAINS
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies
-    INTEGER :: indexLastState(LengthStates)
     INTEGER, DIMENSION(numGames) :: converged
     REAL(8), DIMENSION(numGames) :: timeToConvergence
     REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
-    REAL(8) :: u(2), eps(numAgents), temp(numAgents)
+    REAL(8) :: u(2), eps(numAgents)
     REAL(8) :: newq, oldq, profitgain
     REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
     CHARACTER(len = 25) :: QFileName
@@ -73,7 +72,7 @@ CONTAINS
     ! Starting loop over games
     !
     !$omp parallel do &
-    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ,temp, &
+    !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersInStrategy, &
     !$omp   convergedGame,pricesGridsPrime, &
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
@@ -111,7 +110,7 @@ CONTAINS
         !
         iIters = 0
         iItersInStrategy = 0
-        temp = 1.d3
+        eps = 1.d3
         DO 
             !
             ! Iterations counter
@@ -124,7 +123,7 @@ CONTAINS
             !
             ! Compute pPrime by balancing exploration vs. exploitation
             !
-            CALL computePPrime(ExplorationParameters,uExploration,strategyPrime,state,iIters,pPrime,Q,temp)
+            CALL computePPrime(ExplorationParameters,uExploration,strategyPrime,state,iIters,pPrime,Q,eps)
             !
             ! Defining the new state
             !
@@ -370,7 +369,7 @@ CONTAINS
         ! Record results at convergence
         !
         converged(iGame) = convergedGame
-        indexLastState = convertNumberBase(state-1,numPrices,LengthStates)
+        indexLastState(:,iGame) = convertNumberBase(state-1,numPrices,LengthStates)
         timeToConvergence(iGame) = DBLE(iIters-itersInPerfMeasPeriod)/itersPerYear
         !
         ! End of loop over games
@@ -493,38 +492,38 @@ CONTAINS
     !
     ! 2. Greedy with probability 1-epsilon, with exponentially decreasing epsilon
     !
-    IF (typeExplorationMechanism .GE. 2) THEN
-        !
-        DO iAgent = 1, numAgents-SwitchRestart
-            !
-            pPrime(iAgent) = strategyPrime(state,iAgent)        ! "Expert" agents do not experiment
-            !
-        END DO
-        DO iAgent = numAgents-SwitchRestart+1, numAgents
-            !
-            IF (ExplorationParameters(iAgent) .LT. 0.d0) THEN
-                !
-                eps(iAgent) = 0.d0
-                !
-            ELSE
-                !
-                eps(iAgent) = EXP(-ExplorationParameters(iAgent)*DBLE(iIters-1)/DBLE(itersPerYear))
-                !
-            END IF
-            u = uExploration(:,iAgent)                          ! "Non-Expert" agents can experiment
-            IF (u(1) .LE. eps(iAgent)) THEN
-                !
-                pPrime(iAgent) = 1+INT(numPrices*u(2))
-                !
-            ELSE
-                !
-                pPrime(iAgent) = strategyPrime(state,iAgent)
-                !
-            END IF
-            !
-        END DO
-        !
-    END IF
+    !IF (typeExplorationMechanism .GE. 2) THEN
+    !    !
+    !    DO iAgent = 1, numAgents-SwitchRestart
+    !        !
+    !        pPrime(iAgent) = strategyPrime(state,iAgent)        ! "Expert" agents do not experiment
+    !        !
+    !    END DO
+    !    DO iAgent = numAgents-SwitchRestart+1, numAgents
+    !        !
+    !        IF (ExplorationParameters(iAgent) .LT. 0.d0) THEN
+    !            !
+    !            eps(iAgent) = 0.d0
+    !            !
+    !        ELSE
+    !            !
+    !            eps(iAgent) = EXP(-ExplorationParameters(iAgent)*DBLE(iIters-1)/DBLE(itersPerYear))
+    !            !
+    !        END IF
+    !        u = uExploration(:,iAgent)                          ! "Non-Expert" agents can experiment
+    !        IF (u(1) .LE. eps(iAgent)) THEN
+    !            !
+    !            pPrime(iAgent) = 1+INT(numPrices*u(2))
+    !            !
+    !        ELSE
+    !            !
+    !            pPrime(iAgent) = strategyPrime(state,iAgent)
+    !            !
+    !        END IF
+    !        !
+    !    END DO
+    !    !
+    !END IF
     !
     ! Ending execution and returning control
     !

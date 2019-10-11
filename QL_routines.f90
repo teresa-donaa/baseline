@@ -32,6 +32,7 @@ CONTAINS
     INTEGER :: iAgent, jAgent, iPrice, iState, i, h, status
     INTEGER :: tied(numPrices), Strategy(numStates,numAgents)
     INTEGER :: VisitedStates(numPeriods), PreCycleLength, CycleLength
+    INTEGER, DIMENSION(DepthState,numAgents) :: p
     REAL(8) :: den, u
     CHARACTER(len = 225) :: QFileName
     CHARACTER(len = 5) :: iChar
@@ -44,7 +45,7 @@ CONTAINS
         !
         IF (typeQInitialization(iAgent) .EQ. 'F') THEN
             !
-            ! Assuming strategies fixed at action "parQInitialization(iAgent,:)"
+            ! Agent iAgent assumes agent jAgent plays "parQInitialization(iAgent,jAgent)"
             !
             DO jAgent = 1, numAgents
                 !
@@ -64,9 +65,35 @@ CONTAINS
                 !
             END DO                              ! End of loop over states
             !
+        ELSE IF (typeQInitialization(iAgent) .EQ. 'G') THEN
+            !
+            ! Assume Grim Trigger strategies: every agent behaves as:
+            ! - If all agents played "parQInitialization(iAgent,1)", keep playing "parQInitialization(iAgent,1)"
+            ! - Otherwise, play "parQInitialization(iAgent,2)"
+            ! 
+            DO jAgent = 1, numAgents
+                !
+                Strategy(:,jAgent) = NINT(parQInitialization(iAgent,2))
+                !
+            END DO
+            p = parQInitialization(iAgent,1)
+            Strategy(computeStateNumber(p),:) = parQInitialization(iAgent,1)
+            DO iState = 1, numStates            ! Start of loop over states
+                !
+                ! Compute state value function for Strategy in iState, for all prices
+                !
+                DO iPrice = 1, numPrices            ! Start of loop over prices to compute a row of Q
+                    !
+                    CALL computeQCell(Strategy,iState,iPrice,iAgent,delta, &
+                        Q(iState,iPrice,iAgent),VisitedStates,PreCycleLength,CycleLength)
+                    !
+                END DO                              ! End of loop over prices to compute a row of Q
+                !
+            END DO                              ! End of loop over states
+            !
         ELSE IF (typeQInitialization(iAgent) .EQ. 'O') THEN
             !
-            ! Randomizing over the opponents decisions
+            ! Randomize over the opponents decisions
             !
             DO iPrice = 1, numPrices
                 !

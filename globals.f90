@@ -28,10 +28,9 @@ INTEGER :: numModels, totModels, numCores, numGames, itersPerYear, maxNumYears, 
 REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit, gammaSinghVives
 CHARACTER(len = 50) :: ModelNumber, FileNameInfoModel
 !
-INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexStrategies(:,:), &
+INTEGER, ALLOCATABLE :: converged(:), indexActions(:,:), indexStrategies(:,:), indexLastState(:,:), &
     cStates(:), cActions(:), priceCycles(:,:), sampledIndexStrategies(:,:), sampledPriceCycles(:,:), &
-    indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:), &
-    SwitchMixedStrategies(:)
+    indexStates(:,:), indexEquivalentStates(:,:), indexNashPrices(:), indexCoopPrices(:)
 REAL(8), ALLOCATABLE :: timeToConvergence(:), NashProfits(:), CoopProfits(:), &
     maxValQ(:,:), NashPrices(:), CoopPrices(:), &
     PI(:,:), PIQ(:,:), avgPI(:), avgPIQ(:), alpha(:), delta(:), DiscountFactors(:,:), & 
@@ -97,16 +96,12 @@ CONTAINS
                                         ! they coincide with states when DepthState == 1
     lengthStrategies = numAgents*numStates
     lengthFormatActionPrint = FLOOR(LOG10(DBLE(numPrices)))+1
-    ALLOCATE(SwitchMixedStrategies(numAgents))
     READ(unitNumber,'(1X)')
     !
     ! Read type of exploration mechanism
     !
     READ(unitNumber,*) typeExplorationMechanism
-    IF (typeExplorationMechanism .EQ. 1) numExplorationParameters = 1*numAgents           ! Constant 
-    IF (typeExplorationMechanism .EQ. 2) numExplorationParameters = 1*numAgents           ! Exponentially decreasing (beta)
-    IF (typeExplorationMechanism .EQ. 3) numExplorationParameters = 1*numAgents           ! Exponentially decreasing (m)
-    IF (typeExplorationMechanism .EQ. 4) numExplorationParameters = 2*numAgents           ! Boltzmann
+    numExplorationParameters = 2*numAgents           
     READ(unitNumber,'(1X)')
     !
     ! Read type of payoff input
@@ -140,8 +135,6 @@ CONTAINS
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) SwitchRestart
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) SwitchMixedStrategies
-    READ(unitNumber,'(1X)')
     !
     ! Allocating matrices and vectors
     !
@@ -155,7 +148,7 @@ CONTAINS
         PI(numActions,numAgents),PIQ(numActions,numAgents),avgPI(numActions),avgPIQ(numActions), &
         indexNashPrices(numAgents),indexCoopPrices(numAgents), &
         NashPrices(numAgents),CoopPrices(numAgents), &
-        typeQInitialization(numAgents),parQInitialization(numAgents,2), &
+        typeQInitialization(numAgents),parQInitialization(numAgents,numAgents), &
         NashMarketShares(numAgents),CoopMarketShares(numAgents),PricesGrids(numPrices,numAgents))
     ALLOCATE(CHARACTER(len = 3+lengthStatesPrint) :: labelStates(numStates))
     ALLOCATE(CHARACTER(len = 200) :: QFileFolderName(numAgents))
@@ -191,7 +184,7 @@ CONTAINS
         alpha,MExpl,ExplorationParameters,delta,indexEquivalentStates, &
         meanProfit,seProfit,meanProfitGain,seProfitGain,DemandParameters,PI,PIQ,avgPI,avgPIQ, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids, &
-        SwitchMixedStrategies,typeQInitialization,parQInitialization)
+        typeQInitialization,parQInitialization)
     !
     ! Ending execution and returning control
     !
@@ -220,12 +213,15 @@ CONTAINS
         (typeQInitialization(i), parQInitialization(i,:), i = 1, numAgents)
     IF (typeExplorationMechanism .EQ. 2) THEN
         !
-        ExplorationParameters = MExpl
+        ExplorationParameters(:numAgents) = MExpl(:numAgents)
+        ExplorationParameters(numAgents+1:) = EXP(-MExpl(numAgents+1:)/DBLE(itersPerYear))
         !
     ELSE IF (typeExplorationMechanism .EQ. 3) THEN
         !
-        ExplorationParameters = -DBLE(itersPerYear)/DBLE(numAgents+1)* &
-            LOG(1.d0-(DBLE(numPrices-1)/DBLE(numPrices))**numAgents/(DBLE(numStates*numPrices)*MExpl))
+        ExplorationParameters(:numAgents) = MExpl(:numAgents)
+        ExplorationParameters(numAgents+1:) = -DBLE(itersPerYear)/DBLE(numAgents+1)* &
+            LOG(1.d0-(DBLE(numPrices-1)/DBLE(numPrices))**numAgents/(DBLE(numStates*numPrices)*MExpl(numAgents+1:)))
+        ExplorationParameters(numAgents+1:) = EXP(-ExplorationParameters(numAgents+1:)/DBLE(itersPerYear))
         !
     ELSE IF (typeExplorationMechanism .EQ. 4) THEN
         !
