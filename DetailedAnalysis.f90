@@ -25,10 +25,7 @@ CONTAINS
     !
     ! Declaring local variable
     !
-    INTEGER, DIMENSION(numGames) :: CycleLength, converged
     INTEGER, DIMENSION(numShockPeriodsPrint) :: ShockStates
-    INTEGER, DIMENSION(numPeriods,numGames) :: CycleStates
-    INTEGER, DIMENSION(numAgents,numPeriods,numGames) :: CyclePrices
     INTEGER :: PeriodsLengthPre, ShockLength, PostLength, &
         VisitedStatesPre(numPeriods), VisitedStates(MAX(numShockPeriodsPrint,numPeriods)), &
         VisitedStatesTMP(numPeriods), SameCyclePrePost, &
@@ -42,8 +39,7 @@ CONTAINS
     INTEGER, DIMENSION(numAgents) :: flagBRAll, flagBROnPath, flagBROffPath
     INTEGER :: flagEQAll, flagEQOnPath, flagEQOffPath
     !
-    REAL(8) :: PIStaticBR, timeToConvergence(numGames)
-    REAL(8), DIMENSION(numAgents,numPeriods,numGames) :: CycleProfits
+    REAL(8) :: PIStaticBR
     REAL(8), DIMENSION(numPeriods,numAgents) :: visitedPrices, VisitedProfits, PrePrices, PreProfits
     REAL(8), DIMENSION(numShockPeriodsPrint,numAgents) :: ShockRealPrices, ShockProfits, OptStratQ, DynamicBRQ
     REAL(8), DIMENSION(numAgents) :: DeviationQ, ProfitGains
@@ -55,17 +51,21 @@ CONTAINS
     !
     LOGICAL :: FlagReturnedToState
     !
-    CHARACTER(len = 30) :: filename
-    CHARACTER(len = 3) :: iPriceChar
+    CHARACTER(len = 50) :: FileName
+    CHARACTER(len = 1000) :: fmt
     !
     ! Beginning execution
     !
     PRINT*, 'Computing Detailed Analysis'
     !
+    ! Opening output file
+    !
+    FileName = TRIM(TRIM("A_det_" // ModelName) // "_") // ModelNumber
+    OPEN(UNIT = 100033,FILE = FileName)
+    !
     ! Reading strategies and states at convergence from file
     !
-    CALL ReadInfoModel(converged,timeToConvergence, & 
-        CycleLength,CycleStates,CyclePrices,CycleProfits,indexStrategies)
+    CALL ReadInfoModel()
     !
     ! Writing header line in global output file
     !
@@ -85,11 +85,11 @@ CONTAINS
         (i, i = 1, numShockPeriodsPrint), &
         (i, i = 1, numShockPeriodsPrint), &
         (i, i = 1, numAgents), (i, i = 1, numAgents)
-11  FORMAT('    Game DevTo_Price ', &
+11      FORMAT('    Game DevTo_Price ', &
         <numAgents>(' NashProfit', I1, ' '), <numAgents>(' CoopProfit', I1, ' '), &
-        'PreShock_CycleLength ', &
-        <numAgents>('Avg_Pre_Price', I1, ' '), <numAgents>('Avg_Pre_Profit', I1, ' '), <numAgents>('ProfitGain', I1, ' '), &
-        'Converged TimeToConvergence PreShock_NumInCycle ', &
+        ' PreShockCycleLength ', &
+        <numAgents>('  AvgPrePrice', I1, ' '), <numAgents>('  AvgPreProfit', I1, ' '), <numAgents>('ProfitGain', I1, ' '), &
+        'Converged TimeToConvergence  PreShockNumInCycle ', &
         'flagEQAll flagEQOnPath flagEQOffPath ', &
         'freqEQAll freqEQOnPath freqEQOffPath ', &
         <numAgents>('flagBRAll', I1, ' '), <numAgents>('flagBROnPath', I1, ' '), <numAgents>('flagBROffPath', I1, ' '), &
@@ -99,21 +99,82 @@ CONTAINS
         <numAgents>('   QGapTot', I1, ' '), <numAgents>('QGapOnPath', I1, ' '), <numAgents>('QGapNotOnPath', I1, ' '), &
             <numAgents>('QGapNotBRAllStates', I1, ' '), <numAgents>('QGapNotBRonPath', I1, ' '), &
             <numAgents>('QGapNotEqAllStates', I1, ' '), <numAgents>('QGapNotEqonPath', I1, ' '), &
-        <numAgents>('PreShock_Price', I1, ' '), <numAgents>('PreShock_Profit', I1, ' '), &
-        'Shock_Agent Obs_Agent  Deviation_Q ShockLength SameCyclePrePost ', &
-        <numShockPeriodsPrint>('Shock_Price', I0.3, ' '), &
-        <numShockPeriodsPrint>('Shock_Profit', I0.3, ' '), &
-        <numShockPeriodsPrint>('StaticBR_Price', I0.3, ' '), &
-        <numShockPeriodsPrint>('DynamicBR_Price', I0.3, ' '), &
-        <numShockPeriodsPrint>('OptStrat_Q', I0.3, ' '), &
-        <numShockPeriodsPrint>('DynamicBR_Q', I0.3, ' '), &
-        'PostShock_CycleLength ', <numAgents>('Avg_Post_Price', I1, ' '), <numAgents>('Avg_Post_Profit', I1, ' '))
+        <numAgents>(' PreShockPrice', I1, ' '), <numAgents>(' PreShockProfit', I1, ' '), &
+        ' ShockAgent  ObsAgent   DeviationQ ShockLength SameCyclePrePost DevAgStaticBR001 ', &
+        <numShockPeriodsPrint>(' ShockPrice', I0.3, ' '), &
+        <numShockPeriodsPrint>(' ShockProfit', I0.3, ' '), &
+        <numShockPeriodsPrint>(' StaticBRPrice', I0.3, ' '), &
+        <numShockPeriodsPrint>(' DynamicBRPrice', I0.3, ' '), &
+        <numShockPeriodsPrint>(' OptStratQ', I0.3, ' '), &
+        <numShockPeriodsPrint>(' DynamicBRQ', I0.3, ' '), &
+        ' PostShockCycleLength ', <numAgents>('  AvgPostPrice', I1, ' '), <numAgents>('  AvgPostProfit', I1, ' '))
+    !
+    ! Create format string
+    !
+    WRITE(fmt,99) "(I8, 1X, I11, 1X, ", &
+        numAgents, "(F12.5, 1X), ", numAgents, "(F12.5, 1X), ", &
+        "I20, 1X, ", &
+        numAgents, "(F14.5, 1X), ", numAgents, "(F15.5, 1X), ", numAgents, "(F11.5, 1X), ", &
+        "I9, 1X, F17.5, 1X, I19, 1X, ", &
+        "I9, 1X, I12, 1X, I13, 1X, ", &
+        "F9.5, 1X, F12.5, 1X, F13.5, 1X, ", &
+        numAgents, "(I10, 1X), ", numAgents, "(I13, 1X), ", numAgents, "(I14, 1X), ", &
+        numAgents, "(F10.5, 1X), ", numAgents, "(F13.5, 1X), ", numAgents, "(F14.5, 1X), ", &
+        "F10.5, 1X, F10.5, 1X, F13.5, 1X, F18.5, 1X, F15.5, 1X, F18.5, 1X, F15.5, 1X, ", &
+        numAgents, "(F11.5, 1X), ", numAgents, "(F11.5, 1X), ", numAgents, "(F14.5, 1X), ", &
+        numAgents, "(F19.5, 1X), ", numAgents, "(F16.5, 1X), ", &
+        numAgents, "(F19.5, 1X), ", numAgents, "(F16.5, 1X), ", &
+        numAgents, "(I15, 1X), ", numAgents, "(F16.5, 1X), ", &
+        "I11, 1X, I9, 1X, F12.5, 1X, I11, 1X, I16, 1X, I16, 1X, ", &
+        numShockPeriodsPrint, "(I14, 1X), ", &
+        numShockPeriodsPrint, "(F15.5, 1X), ", &
+        numShockPeriodsPrint, "(I17, 1X), ", &
+        numShockPeriodsPrint, "(I18, 1X), ", &
+        numShockPeriodsPrint, "(F13.5, 1X), ", &
+        numShockPeriodsPrint, "(F14.5, 1X), ", &
+        "I21, 1X, ", numAgents, "(F15.5, 1X), ", numAgents, "(F16.5, 1X))"
+99  FORMAT(A, &
+        I1, A, I1, A, &
+        A, &
+        I1, A, I1, A, I1, A, &
+        A, &
+        A, &
+        A, &
+        I1, A, I1, A, I1, A, &
+        I1, A, I1, A, I1, A, &
+        A, &
+        I1, A, I1, A, I1, A, &
+        I1, A, I1, A, &
+        I1, A, I1, A, &
+        I1, A, I1, A, &
+        A, &
+        I2, A, &
+        I2, A, &
+        I2, A, &
+        I2, A, &
+        I2, A, &
+        I2, A, &
+        A, I1, A, I1, A)
     !
     ! Beginning loop over games
     !
+    !$ CALL OMP_SET_NUM_THREADS(numCores)
+    !$omp parallel do &
+    !$omp private(OptimalStrategyVec,OptimalStrategy,PeriodsLengthPre,VisitedStatesPre, &
+    !$omp   PrePrices,PreProfits,IndPrePrices,AvgPrePrices,AvgPreProfits,iPeriod, &
+    !$omp   iAgent,ProfitGains,SlackOnPath,SlackOffPath, &
+    !$omp   freqBRAll,freqBROnPath,freqBROffPath,freqEQAll,freqEQOnPath,freqEQOffPath, &
+    !$omp   flagBRAll,flagBROnPath,flagBROffPath,flagEQAll,flagEQOnPath,flagEQOffPath, &
+    !$omp   QGapTotGame,QGapOnPathGame,QGapNotOnPathGame,QGapNotBRAllStatesGame, &
+    !$omp   QGapNotBRonPathGame,QGapNotEqAllStatesGame,QGapNotEqonPathGame,iPrice,iStatePre, &
+    !$omp   ShockPrices,ShockRealPrices,ShockProfits,StaticBRPrices,DynamicBRPrices, &
+    !$omp   OptStratQ,DynamicBRQ,DeviationQ,AvgPostPrices, &
+    !$omp   AvgPostProfits,VisitedStates,pPrime,jAgent,VisitedStatesTMP,PreCycleLength,QCellCycleLength,&
+    !$omp   ShockStates,ShockLength,SameCyclePrePost,PostLength,p,iPeriodState, &
+    !$omp   PIStaticBR) 
     DO iGame = 1, numGames        ! Start of loop over games
         !
-        PRINT*, 'iGame = ', iGame
+        PRINT*, 'Game = ', iGame, ' started'
         !
         OptimalStrategyVec = indexStrategies(:,iGame)
         OptimalStrategy = RESHAPE(OptimalStrategyVec, (/ numStates,numAgents /) )
@@ -158,11 +219,11 @@ CONTAINS
         !
         CALL computeQGapToMaxGame(OptimalStrategy,PeriodsLengthPre,CycleStates(:PeriodsLengthPre,iGame), &
             QGapTotGame,QGapOnPathGame,QGapNotOnPathGame,QGapNotBRAllStatesGame, &
-           QGapNotBRonPathGame,QGapNotEqAllStatesGame,QGapNotEqonPathGame)
+            QGapNotBRonPathGame,QGapNotEqAllStatesGame,QGapNotEqonPathGame)
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! IR analysis with deviation to iPrice
-        ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        ! %%%0%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         !
         ! Beginning loop over deviation prices
         !
@@ -194,7 +255,7 @@ CONTAINS
                     DO jAgent = 1, numAgents
                         !
                         CALL computeQCell(OptimalStrategy,VisitedStatesPre(iStatePre),pPrime(jAgent),jAgent,delta, &
-                            DeviationQ(jAgent),VisitedStatesTMP,PreCycleLength,QCellCycleLength)                                !
+                            DeviationQ(jAgent),VisitedStatesTMP,PreCycleLength,QCellCycleLength)  
                         !
                     END DO
                     !
@@ -223,7 +284,7 @@ CONTAINS
                             !
                             ! Find prices and Qs according to the strategy at convergence
                             CALL computeQCell(OptimalStrategy,iPeriodState,OptimalStrategy(iPeriodState,jAgent),jAgent,delta, &
-                                OptStratQ(iPeriod,jAgent),VisitedStatesTMP,PreCycleLength,QCellCycleLength)                                !
+                                OptStratQ(iPeriod,jAgent),VisitedStatesTMP,PreCycleLength,QCellCycleLength)     
                             !
                             ! Find StaticBR prices and PIs
                             CALL ComputeStaticBestResponse(OptimalStrategy,VisitedStatesPre(iStatePre),jAgent, &
@@ -237,7 +298,8 @@ CONTAINS
                     !
                     DO jAgent = 1, numAgents    ! Start of loop over observed agent
                         !
-                        WRITE(100033,12) iGame, iPrice, &
+                        !$omp critical
+                        WRITE(100033,fmt) iGame, iPrice, &
                             NashProfits, CoopProfits, &
                             PeriodsLengthPre, &
                             AvgPrePrices, AvgPreProfits, ProfitGains, &
@@ -252,7 +314,7 @@ CONTAINS
                                 QGapNotBRAllStatesGame(1:numAgents), QGapNotBRonPathGame(1:numAgents), &
                                 QGapNotEqAllStatesGame(1:numAgents),QGapNotEqonPathGame(1:numAgents), &
                             IndPrePrices(iStatePre,:), PreProfits(iStatePre,:), &
-                            iAgent, jAgent, DeviationQ(jAgent), ShockLength, SameCyclePrePost, &
+                            iAgent, jAgent, DeviationQ(jAgent), ShockLength, SameCyclePrePost, StaticBRPrices(1,iAgent), &
                             ShockPrices(:,jAgent), &
                             ShockProfits(:,jAgent), &
                             StaticBRPrices(:,jAgent), &
@@ -260,28 +322,7 @@ CONTAINS
                             OptStratQ(:,jAgent), &
                             DynamicBRQ(:,jAgent), &
                             PostLength, AvgPostPrices, AvgPostProfits
-12                      FORMAT(I8, 1X, I11, 1X, &
-                            <2*numAgents>(F12.5, 1X), &
-                            I20, 1X, &
-                            <numAgents>(F14.5, 1X), <numAgents>(F15.5, 1X), <numAgents>(F11.5, 1X), &
-                            I9, 1X, F17.5, 1X, I19, 1X, &
-                            I9, 1X, I12, 1X, I13, 1X, &
-                            F9.5, 1X, F12.5, 1X, F13.5, 1X, &
-                            <numAgents>(I10, 1X), <numAgents>(I13, 1X), <numAgents>(I14, 1X), &
-                            <numAgents>(F10.5, 1X), <numAgents>(F13.5, 1X), <numAgents>(F14.5, 1X), &
-                            F10.5, 1X, F10.5, 1X, F13.5, 1X, F18.5, 1X, F15.5, 1X, F18.5, 1X, F15.5, 1X, &
-                            <numAgents>(F11.5, 1X), <numAgents>(F11.5, 1X), <numAgents>(F14.5, 1X), &
-                                <numAgents>(F19.5, 1X), <numAgents>(F16.5, 1X), &
-                                <numAgents>(F19.5, 1X), <numAgents>(F16.5, 1X), &
-                            <numAgents>(I15, 1X), <numAgents>(F16.5, 1X), &
-                            I11, 1X, I9, 1X, F12.5, 1X, I11, 1X, I16, 1X, &
-                            <numShockPeriodsPrint>(I14, 1X), &
-                            <numShockPeriodsPrint>(F15.5, 1X), &
-                            <numShockPeriodsPrint>(I17, 1X), &
-                            <numShockPeriodsPrint>(I18, 1X), &
-                            <numShockPeriodsPrint>(F13.5, 1X), &
-                                <numShockPeriodsPrint>(F14.5, 1X), &
-                            I21, 1X, <numAgents>(F15.5, 1X), <numAgents>(F16.5, 1X))
+                        !$omp end critical
                         !
                     END DO                  ! End of loop over observed agent
                     !
@@ -291,11 +332,14 @@ CONTAINS
             !
         END DO                              ! End of loop over deviation prices
         !
-        ! Closing output file
-        !
-        CLOSE(UNIT = 100)
+        PRINT*, 'Game = ', iGame, ' completed'
         !
     END DO                                  ! End of loop over games
+    !$omp end parallel do
+    !
+    ! Close output file
+    !
+    CLOSE(UNIT = 100033)
     !
     ! Ending execution and returning control
     !

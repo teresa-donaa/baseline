@@ -40,12 +40,9 @@ CONTAINS
     !
     INTEGER :: i, j, iGame, iAgent, jAgent, iPeriod, iStatePre, iState, &
         PosThres, PeriodsLengthPre, DevPrice, DevLength
-    INTEGER, DIMENSION(numGames) :: CycleLength
     INTEGER, DIMENSION(numPeriods) :: VisitedStatesPre
     INTEGER, DIMENSION(numThresPeriodsLength) :: FreqPreLength
     INTEGER, DIMENSION(numShockPeriodsPrint) :: ShockStates
-    INTEGER, DIMENSION(numPeriods,numGames) :: CycleStates
-    INTEGER, DIMENSION(numAgents,numPeriods,numGames) :: CyclePrices
     INTEGER :: OptimalStrategyVec(lengthStrategies), OptimalStrategy(numStates,numAgents)
     INTEGER :: ShockLength, PostLength, PunishmentStrategy
     INTEGER, DIMENSION(numAgents,numThresPeriodsLength) :: FreqShockLength, FreqPostLength
@@ -54,7 +51,6 @@ CONTAINS
     INTEGER, DIMENSION(numShockPeriodsPrint,numAgents) :: ShockIndPrices
     !
     REAL(8) :: r_tmp, nn
-    REAL(8), DIMENSION(numAgents,numPeriods,numGames) :: CycleProfits
     REAL(8), DIMENSION(numPeriods,numAgents) :: PrePrices, PreProfits
     REAL(8), DIMENSION(numAgents) :: AvgPrePrices, AvgPreProfits, AvgPrePricesQ, AvgPreProfitsQ
     REAL(8), DIMENSION(numShockPeriodsPrint,numAgents) :: ShockPrices, ShockProfits, &
@@ -78,8 +74,7 @@ CONTAINS
     !
     ! Reading strategies and states at convergence from file
     !
-    CALL ReadInfoModel(converged,timeToConvergence, & 
-        CycleLength,CycleStates,CyclePrices,CycleProfits,indexStrategies)
+    CALL ReadInfoModel()
     !
     ! Initializing variables
     !
@@ -340,7 +335,7 @@ CONTAINS
         WRITE(UnitNumber,1) &
             (i, i = 1, numAgents), &
             (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
-            (i, (j, i, j = 1, 2), i = 1, numAgents), &
+            (i, (j, i, j = 1, numAgents), i = 1, numAgents), &
             (i, i = 1, numDemandParameters), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             (i, i = 1, numAgents), (i, i = 1, numAgents),  &
@@ -365,7 +360,7 @@ CONTAINS
 1       FORMAT('Model IRType ', &
             <numAgents>('    alpha', I1, ' '), &
             <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
-            <numAgents>('typeQini', I1, ' ', <2>('par', I1, 'Qini', I1, ' ')), &
+            <numAgents>('typeQini', I1, ' ', <numAgents>('par', I1, 'Qini', I1, ' ')), &
             <numDemandParameters>('  DemPar', I0.2, ' '), &
             <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
@@ -423,7 +418,7 @@ CONTAINS
             jAgent = 1, numAgents), iAgent = 1, numAgents)
 2   FORMAT(I5, 1X, I6, 1X, &
         <numAgents>(F10.5, 1X), <numExplorationParameters>(F10.5, 1X), <numAgents>(F10.5, 1X), &
-        <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+        <numAgents>(A9, 1X, <numAgents>(F9.2, 1X)), &
         <numDemandParameters>(F10.5, 1X), &
         <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &

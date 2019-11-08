@@ -1,7 +1,7 @@
 MODULE QL_routines
 !
 USE globals
-USE m_median
+!USE m_median
 !
 ! Various routines used in exp2
 !
@@ -107,10 +107,11 @@ CONTAINS
             ! Start from a randomly drawn Q matrix at convergence 
             ! on model "parQInitialization(iAgent,1)"
             !
-            WRITE(codModelChar,'(I0.5)') NINT(parQInitialization(iAgent,1))
+            
+            WRITE(codModelChar,'(I0.<LengthFormatTotModelsPrint>)') NINT(parQInitialization(iAgent,1))
             i = 1+INT(DBLE(numGames)*ran2(idumQ,ivQ,iyQ,idum2Q))
             WRITE(iChar,'(I0.5)') i
-            QFileName = 'Q_' // codModelChar // '_' // iChar // '.txt'
+            QFileName = 'Q_' // TRIM(codModelChar) // '_' // iChar // '.txt'
             QFileFolderNameAgent = QFileFolderName(iAgent)
             QFileName = TRIM(QFileFolderNameAgent) // TRIM(QFileName)
             !
@@ -346,13 +347,13 @@ CONTAINS
     !
     ! Declaring function's type
     !
-    CHARACTER(len = lengthStatesPrint) :: computeStatesCodePrint(numStates)
+    CHARACTER(len = LengthFormatStatesPrint) :: computeStatesCodePrint(numStates)
     !
     ! Declaring local variables
     !
     INTEGER :: i, j, indexState(LengthStates)
     CHARACTER(len = lengthFormatActionPrint) :: tmp
-    CHARACTER(len = lengthStatesPrint) :: labelState
+    CHARACTER(len = LengthFormatStatesPrint) :: labelState
     !
     ! Beginning execution
     !
@@ -509,8 +510,7 @@ CONTAINS
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE ReadInfoModel ( converged, timeToConvergence, CycleLength, &
-        CycleStates, CyclePrices, CycleProfits, indexStrategies )
+    SUBROUTINE ReadInfoModel ( )
     !
     ! Reads the InfoModel txt file
     !
@@ -518,7 +518,7 @@ CONTAINS
     !
     ! None
     !
-    ! OUTPUT:
+    ! OUTPUT (via global variables):
     !
     ! - converged           : numGames array, = 1 if replication converged, = 0 otherwise
     ! - timeToConvergence   : numGames array of number of iterations to convergence (/ItersPerYear)
@@ -529,16 +529,6 @@ CONTAINS
     ! - indexStrategies     : lengthStrategies x numGames array of strategies at convergence 
     !
     IMPLICIT NONE
-    !
-    ! Declaring dummy variables
-    !
-    !
-    INTEGER, DIMENSION(numGames), INTENT(OUT) :: converged, CycleLength
-    REAL(8), INTENT(OUT) :: timeToConvergence(numGames)
-    INTEGER, DIMENSION(numPeriods,numGames), INTENT(OUT) :: CycleStates
-    INTEGER, DIMENSION(numAgents,numPeriods,numGames), INTENT(OUT) :: CyclePrices
-    REAL(8), DIMENSION(numAgents,numPeriods,numGames), INTENT(OUT) :: CycleProfits
-    INTEGER, DIMENSION(lengthStrategies,numGames), INTENT(OUT) :: indexStrategies
     !
     ! Declaring local variables
     !

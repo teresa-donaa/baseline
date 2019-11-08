@@ -2,6 +2,7 @@ MODULE QGapToMaximum
 !
 USE globals
 USE QL_routines
+USE generic_routines
 USE EquilibriumCheck
 !
 ! Computes gap in Q function values w.r.t. maximum
@@ -31,12 +32,8 @@ CONTAINS
     INTEGER, DIMENSION(0:numThresPathCycleLength,0:numAgents) :: NumQGapTot, NumQGapOnPath, &
         NumQGapNotOnPath, NumQGapNotBRAllStates, NumQGapNotBRonPath, & 
         NumQGapNotEqAllStates, NumQGapNotEqonPath
-    INTEGER, DIMENSION(numPeriods,numGames) :: CycleStates
-    INTEGER, DIMENSION(numGames) :: CycleLength    
-    INTEGER, DIMENSION(numAgents,numPeriods,numGames) :: CyclePrices
     REAL(8), DIMENSION(0:numThresPathCycleLength,0:numAgents) :: SumQGapTot, SumQGapOnPath, &
         SumQGapNotOnPath, SumQGapNotBRAllStates, SumQGapNotBRonPath, SumQGapNotEqAllStates, SumQGapNotEqonPath
-    REAL(8), DIMENSION(numAgents,numPeriods,numGames) :: CycleProfits
     REAL(8), DIMENSION(0:numAgents) :: QGapTotGame,QGapOnPathGame,QGapNotOnPathGame,QGapNotBRAllStatesGame, &
             QGapNotBRonPathGame,QGapNotEqAllStatesGame,QGapNotEqonPathGame
     !
@@ -65,8 +62,7 @@ CONTAINS
     !
     ! Reading strategies and states at convergence from file
     !
-    CALL ReadInfoModel(converged,timeToConvergence, & 
-        CycleLength,CycleStates,CyclePrices,CycleProfits,indexStrategies)
+    CALL ReadInfoModel()
     !
     ! Beginning loop over games
     !
@@ -187,7 +183,7 @@ CONTAINS
         WRITE(10006,1) &
             (i, i = 1, numAgents), &
             (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
-            (i, (j, i, j = 1, 2), i = 1, numAgents), &
+            (i, (j, i, j = 1, numAgents), i = 1, numAgents), &
             (i, i = 1, numDemandParameters), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
@@ -199,7 +195,7 @@ CONTAINS
 1       FORMAT('Model ', &
             <numAgents>('    alpha', I1, ' '), &
             <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
-            <numAgents>('typeQini', I1, ' ', <2>('par', I1, 'Qini', I1, ' ')), &
+            <numAgents>('typeQini', I1, ' ', <numAgents>('par', I1, 'Qini', I1, ' ')), &
             <numDemandParameters>('  DemPar', I0.2, ' '), &
             <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
@@ -232,8 +228,8 @@ CONTAINS
         (SumQGapTot(j,i), SumQGapOnPath(j,i), SumQGapNotOnPath(j,i), &
             SumQGapNotBRAllStates(j,i), SumQGapNotBRonPath(j,i), SumQGapNotEqAllStates(j,i), SumQGapNotEqonPath(j,i), i = 1, numAgents), j = 1, numThresPathCycleLength)
 2   FORMAT(I5, 1X, &
-        <3*numAgents>(F10.5, 1X), &
-        <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+        <numAgents>(F10.5, 1X), <numExplorationParameters>(F10.5, 1X), <numAgents>(F10.5, 1X), &
+        <numAgents>(A9, 1X, <numAgents>(F9.2, 1X)), &
         <numDemandParameters>(F10.5, 1X), &
         <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
@@ -339,7 +335,7 @@ CONTAINS
         IsBR = .FALSE.
         DO iAgent = 1, numAgents            ! Start of loop over agents
             !
-            IF (ABS(QTrue(iState,OptimalStrategy(iState,iAgent),iAgent)-MaxQTrue(iState,iAgent)) .LE. EPSILON(MaxQTrue(iState,iAgent))) THEN
+            IF (AreEqualReals(QTrue(iState,OptimalStrategy(iState,iAgent),iAgent),MaxQTrue(iState,iAgent))) THEN
                 !
                 IsBR(iAgent) = .TRUE.
                 !

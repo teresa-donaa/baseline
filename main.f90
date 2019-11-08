@@ -8,7 +8,7 @@ USE PolicyImprovement
 USE ImpulseResponse
 USE EquilibriumCheck
 USE QGapToMaximum
-USE PIGapToMaximum
+USE LearningTrajectory
 USE DetailedAnalysis
 USE QL_routines
 USE PI_routines
@@ -18,77 +18,59 @@ IMPLICIT NONE
 !
 ! Declaring variables and parameters
 !
-INTEGER :: iModel, iter, i, j, h, iGame, numGamesConverged, iAgent, errcode, nlines
-REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
-REAL(8) :: meanAvgProfit, seAvgProfit
-REAL(8) :: meanAvgProfitGain, seAvgProfitGain
-REAL(8) :: herfFreq, entropyFreq, giniFreq, freqSymmetricStrategies
-CHARACTER(len = 5) :: iChar
-CHARACTER(len = 50) :: ModelName, FileName, FileNameMSR
-REAL(8), ALLOCATABLE :: alpha_tmp(:), beta_tmp(:), delta_tmp(:)
+INTEGER :: iModel, i, iAgent
+CHARACTER(len = 50) :: FileName
 !
 ! Beginning execution
 !
 ! Opening files
 !
-ModelName = "mixedQ_5920_5920.txt"
-FileName = "A_mod_" // ModelName
+ModelName = "table_A5"
+FileName = TRIM("A_mod_" // ModelName) // ".txt"
 !
 OPEN(UNIT = 10001,FILE = FileName)
 CALL readBatchVariables(10001)
 !
 IF (SwitchQLearningResults .EQ. 1) THEN
     !
-    FileName = "A_res_" // ModelName
+    FileName = TRIM("A_res_" // ModelName) // ".txt"
     OPEN(UNIT = 10002,FILE = FileName)
     !
 END IF
 IF (SwitchConvergenceResults .EQ. 1) THEN
     !
-    FileName = "A_convResults_" // ModelName
+    FileName = TRIM("A_convResults_" // ModelName) // ".txt"
     OPEN(UNIT = 100022,FILE = FileName)
     !
 END IF
 IF (SwitchImpulseResponseToBR .EQ. 1) THEN
     !
-    FileName = "A_irToBR_" // ModelName
+    FileName = TRIM("A_irToBR_" // ModelName) // ".txt"
     OPEN(UNIT = 10003,FILE = FileName)
     !
 END IF
 IF (SwitchImpulseResponseToNash .GE. 1) THEN
     !
-    FileName = "A_irToNash_" // ModelName
+    FileName = TRIM("A_irToNash_" // ModelName) // ".txt"
     OPEN(UNIT = 100031,FILE = FileName)
     !
 END IF
 IF (SwitchImpulseResponseToAll .EQ. 1) THEn
     !
-    FileName = "A_irToAll_" // ModelName
+    FileName = TRIM("A_irToAll_" // ModelName) // ".txt"
     OPEN(UNIT = 100032,FILE = FileName)
     !
 END IF
 IF (SwitchEquilibriumCheck .EQ. 1) THEN
     !
-    FileName = "A_ec_" // ModelName
+    FileName = TRIM("A_ec_" // ModelName) // ".txt"
     OPEN(UNIT = 10004,FILE = FileName)
     !
 END IF
 IF (SwitchQGapToMaximum .EQ. 1) THEN
     !
-    FileName = "A_qg_" // ModelName
+    FileName = TRIM("A_qg_" // ModelName) // ".txt"
     OPEN(UNIT = 10006,FILE = FileName)
-    !
-END IF
-IF (SwitchPIGapToMaximum .EQ. 1) THEN
-    !
-    FileName = "A_pg_" // ModelName
-    OPEN(UNIT = 10007,FILE = FileName)
-    !
-END IF
-IF (SwitchDetailedAnalysis .EQ. 1) THEN
-    !
-    FileName = "A_det_" // ModelName
-    OPEN(UNIT = 100033,FILE = FileName)
     !
 END IF
 labelStates = computeStatesCodePrint()
@@ -109,10 +91,7 @@ DO iModel = 1, numModels
         !
         IF (typeQInitialization(iAgent) .EQ. 'T') THEN
             !
-            WRITE(iChar,'(I0.5)') NINT(parQInitialization(iAgent,1))
-            QFileFolderName(iAgent) = &
-                'C:/Users/sergio.pastorello/Documents/jobs/dynamic pricing/qlearning/baseline/mixed_Q_analysis/Q_' // &
-                    iChar // '/'
+            QFileFolderName(iAgent) = 'trained_Q/'
             !
         END IF
         !
@@ -120,7 +99,6 @@ DO iModel = 1, numModels
     !
     ! Creating the PI matrix
     !
-    ALLOCATE(indexStrategies(lengthStrategies,numGames),indexLastState(lengthStates,numGames))
     IF (typePayoffInput .EQ. 0) CALL computePIMatricesGiven(DemandParameters,NashPrices,CoopPrices,&
         PI,NashProfits,CoopProfits, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids)
@@ -130,17 +108,27 @@ DO iModel = 1, numModels
     IF (typePayoffInput .EQ. 2) CALL computePIMatricesLogit(DemandParameters,NashPrices,CoopPrices,&
         PI,NashProfits,CoopProfits, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids)
-    IF (typePayoffInput .EQ. 3) CALL computePIMatricesLogitSigma0(DemandParameters,NashPrices,CoopPrices,&
+    IF (typePayoffInput .EQ. 3) CALL computePIMatricesLogitMu0(DemandParameters,NashPrices,CoopPrices,&
         PI,NashProfits,CoopProfits, &
         indexNashPrices,indexCoopPrices,NashMarketShares,CoopMarketShares,PricesGrids)
     PIQ = PI**2
     avgPI = SUM(PI,DIM = 2)/numAgents
     avgPIQ = avgPI**2
     !
+    ! Computing profit gains
+    !
+    DO iAgent = 1, numAgents
+        !
+        PG(:,iAgent) = (PI(:,iAgent)-NashProfits(iAgent))/(CoopProfits(iAgent)-NashProfits(iAgent))
+        !
+    END DO
+    PGQ = PG**2
+    avgPG = SUM(PG,DIM = 2)/numAgents
+    avgPGQ = avgPG**2
+    !
     ! Creating I/O filenames
     !
-    i = 1+INT(LOG10(DBLE(totModels)))
-    WRITE(ModelNumber, "(I0.<i>, A4)") codModel, ".txt"
+    WRITE(ModelNumber, "(I0.<LengthFormatTotModelsPrint>, A4)") codModel, ".txt"
     FileNameInfoModel = "InfoModel_" // ModelNumber
     !
     ! Print message
@@ -199,21 +187,18 @@ DO iModel = 1, numModels
     !
     IF (SwitchEquilibriumCheck .EQ. 1) CALL computeEqCheck(iModel)
     !
-    ! Q and Average PI Gap w.r.t. Maximum
+    ! Q Gap w.r.t. Maximum
     !
     IF (SwitchQGapToMaximum .EQ. 1) CALL computeQGapToMax(iModel)
     !
-    ! Q and Average PI Gap w.r.t. Maximum
+    ! Learning Trajectory analysis
     !
-    IF (SwitchPIGapToMaximum .EQ. 1) CALL computeAvgPIGapToMax(iModel)
+    IF (ParamsLearningTrajectory(1) .GT. 0) &
+        CALL ComputeLearningTrajectory(iModel,codModel,alpha,ExplorationParameters,delta)
     !
     ! Detailed Impulse Response analysis to one-period deviation to all prices
     !
     IF (SwitchDetailedAnalysis .EQ. 1) CALL ComputeDetailedAnalysis(iModel)
-    !
-    ! Deallocate arrays
-    !
-    DEALLOCATE(indexStrategies,indexLastState)
     !    
     ! End of loop over models
     !
@@ -233,8 +218,6 @@ IF (SwitchImpulseResponseToNash .GE. 1) CLOSE(UNIT = 100031)
 IF (SwitchImpulseResponseToAll .EQ. 1) CLOSE(UNIT = 100032)
 IF (SwitchEquilibriumCheck .EQ. 1) CLOSE(UNIT = 10004)
 IF (SwitchQGapToMaximum .EQ. 1) CLOSE(UNIT = 10006)
-IF (SwitchPIGapToMaximum .EQ. 1) CLOSE(UNIT = 10007)
-IF (SwitchDetailedAnalysis .EQ. 1) CLOSE(UNIT = 100033)
 !
 ! End of execution
 !

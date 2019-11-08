@@ -26,14 +26,13 @@ CONTAINS
     !
     INTEGER :: iGame, iAgent, iThres, i, j, iState, &
         OptimalStrategyVec(lengthStrategies), OptimalStrategy(numStates,numAgents), &
-        CycleStates(numPeriods,numGames), CycleStatesGame(numPeriods), &
-        CycleLengthGame, CycleLength(numGames), numCycleLength(0:numThresCycleLength), &
+        CycleStatesGame(numPeriods), &
+        CycleLengthGame, numCycleLength(0:numThresCycleLength), &
         ThresCycleLength(numThresCycleLength)
     INTEGER, DIMENSION(numAgents) :: flagBRAllGame, flagBROnPathGame, flagBROffPathGame
     INTEGER :: flagEQAllGame, flagEQOnPathGame, flagEQOffPathGame
     INTEGER, DIMENSION(numAgents,numGames) :: flagBRAll, flagBROnPath, flagBROffPath
     INTEGER, DIMENSION(numGames) :: flagEQAll, flagEQOnPath, flagEQOffPath
-    INTEGER, DIMENSION(numAgents,numPeriods,numGames) :: CyclePrices
     !
     REAL(8) :: r_num
     REAL(8), DIMENSION(numAgents) :: freqBRAllGame, freqBROnPathGame, freqBROffPathGame
@@ -44,7 +43,6 @@ CONTAINS
     REAL(8), DIMENSION(0:numThresCycleLength) :: AvgFreqEQAll, AvgFreqEQOnPath, AvgFreqEQOffPath
     REAL(8), DIMENSION(0:numAgents,0:numThresCycleLength) :: AvgFlagBRAll, AvgFlagBROnPath, AvgFlagBROffPath
     REAL(8), DIMENSION(0:numThresCycleLength) :: AvgFlagEQAll, AvgFlagEQOnPath, AvgFlagEQOffPath
-    REAL(8), DIMENSION(numAgents,numPeriods,numGames) :: CycleProfits
     !
     LOGICAL :: cond(numGames), matcond(numAgents,numGames)
     !
@@ -59,8 +57,7 @@ CONTAINS
     !
     ! Reading strategies and states at convergence from file
     !
-    CALL ReadInfoModel(converged,timeToConvergence, & 
-        CycleLength,CycleStates,CyclePrices,CycleProfits,indexStrategies)
+    CALL ReadInfoModel()
     !
     ! Beginning loop over games
     !
@@ -246,7 +243,7 @@ CONTAINS
         WRITE(10004,1) &
             (i, i = 1, numAgents), &
             (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
-            (i, (j, i, j = 1, 2), i = 1, numAgents), &
+            (i, (j, i, j = 1, numAgents), i = 1, numAgents), &
             (i, i = 1, numDemandParameters), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             (i, i = 1, numAgents), (i, i = 1, numAgents),  &
@@ -255,11 +252,11 @@ CONTAINS
             (iThres, iThres = 0, numThresCycleLength), &
             ((iThres, i = 1, 12), iThres = 0, numThresCycleLength), &
             (((iAgent, iThres, i = 1, 6), iThres = 0, numThresCycleLength), &
-                    iAgent = 1, 2)
+                    iAgent = 1, numAgents)
 1       FORMAT('Model ', &
             <numAgents>('    alpha', I1, ' '), &
             <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
-            <numAgents>('typeQini', I1, ' ', <2>('par', I1, 'Qini', I1, ' ')), &
+            <numAgents>('typeQini', I1, ' ', <numAgents>('par', I1, 'Qini', I1, ' ')), &
             <numDemandParameters>('  DemPar', I0.2, ' '), &
             <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
@@ -304,10 +301,10 @@ CONTAINS
         ((AvgFlagBRAll(iAgent,iThres), AvgFlagBROnPath(iAgent,iThres), AvgFlagBROffPath(iAgent,iThres), &
           AvgFreqBRAll(iAgent,iThres), AvgFreqBROnPath(iAgent,iThres), AvgFreqBROffPath(iAgent,iThres), &
             iThres = 0, numThresCycleLength), &
-                iAgent = 1, 2)
+                iAgent = 1, numAgents)
 2   FORMAT(I5, 1X, &
         <numAgents>(F10.5, 1X), <numExplorationParameters>(F10.5, 1X), <numAgents>(F10.5, 1X), &
-        <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+        <numAgents>(A9, 1X, <numAgents>(F9.2, 1X)), &
         <numDemandParameters>(F10.5, 1X), &
         <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &

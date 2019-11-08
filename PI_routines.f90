@@ -1,6 +1,7 @@
 MODULE PI_routines
 !
 USE globals
+USE generic_routines
 USE QL_routines
 !
 ! Various routines used to compute PI matrices at runtime
@@ -183,7 +184,7 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    REAL(8) :: a0, sigma, extend(2), objFct
+    REAL(8) :: a0, mu, extend(2)
     REAL(8), DIMENSION(numAgents) :: a, c, d, stepPrices, prices
     INTEGER :: i, j, iter, iAgent
     !
@@ -196,17 +197,17 @@ CONTAINS
     a0 = DemandParameters(1)
     a = DemandParameters(2:1+numAgents)
     c = DemandParameters(2+numAgents:1+2*numAgents)
-    sigma = DemandParameters(2+2*numAgents)
+    mu = DemandParameters(2+2*numAgents)
     extend = DemandParameters(3+2*numAgents:4+2*numAgents)
     !
     ! 1. Compute repeated Nash profits
     !
-    NashMarketShares = logitDemands(a0,a,c,sigma,NashPrices)
+    NashMarketShares = logitDemands(a0,a,c,mu,NashPrices)
     NashProfits = (NashPrices-c)*NashMarketShares
     !
     ! 2. Compute cooperation profits
     !
-    CoopMarketShares = logitDemands(a0,a,c,sigma,CoopPrices)
+    CoopMarketShares = logitDemands(a0,a,c,mu,CoopPrices)
     CoopProfits = (CoopPrices-c)*CoopMarketShares
     !
     ! 3. Compute price grid
@@ -224,10 +225,10 @@ CONTAINS
     ELSE IF ((extend(1) .LT. 0.d0) .AND. (extend(2) .GE. -EPSILON(extend(2)))) THEN
         !
         ! Lower bound = cost + extend(1)*cost
-        ! Upper bound = pCoop + extend(2)*pCoop
+        ! Upper bound = pCoop + extend(2)*(CoopPrices-NashPrices)
         !
         PricesGrids(1,:) = c+extend(1)*c
-        PricesGrids(numPrices,:) = CoopPrices+extend(2)*CoopPrices
+        PricesGrids(numPrices,:) = CoopPrices+extend(2)*(CoopPrices-NashPrices)
         !
     END IF
     !
@@ -250,7 +251,7 @@ CONTAINS
             !
         END DO
         !
-        d = logitDemands(a0,a,c,sigma,prices)
+        d = logitDemands(a0,a,c,mu,prices)
         PI(i,:) = (prices-c)*d
         !
     END DO
@@ -268,7 +269,7 @@ CONTAINS
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE computePIMatricesLogitSigma0 ( DemandParameters, NashPrices, CoopPrices, &
+    SUBROUTINE computePIMatricesLogitMu0 ( DemandParameters, NashPrices, CoopPrices, &
         PI, NashProfits, CoopProfits, &
         indexNashPrices, indexCoopPrices, NashMarketShares, CoopMarketShares, &
         PricesGrids )
@@ -289,8 +290,8 @@ CONTAINS
     !
     ! Declaring local variables
     !
-    REAL(8) :: a0, sigma, extend(2), objFct
-    REAL(8), DIMENSION(numAgents) :: a, c, d, stepPrices, prices
+    REAL(8) :: a0, mu, extend(2)
+    REAL(8), DIMENSION(numAgents) :: a, c, d, stepPrices, pp
     INTEGER :: i, j, iter, iAgent
     !
     ! Beginning execution
@@ -308,7 +309,7 @@ CONTAINS
     a0 = DemandParameters(1)
     a = DemandParameters(2:1+numAgents)
     c = DemandParameters(2+numAgents:1+2*numAgents)
-    sigma = DemandParameters(2+2*numAgents)
+    mu = DemandParameters(2+2*numAgents)
     extend = DemandParameters(3+2*numAgents:4+2*numAgents)
     !
     ! 1. Compute repeated Nash profits
@@ -338,58 +339,45 @@ CONTAINS
         !
         DO j = 1, numAgents
             !
-            prices(j) = PricesGrids(indexActions(i,j),j)
+            pp(j) = PricesGrids(indexActions(i,j),j)
             !
         END DO
         !
         ! Demand for agent 1
         !
-        IF (prices(1) .LE. a(1)) THEN
-            !
-            IF (prices(1) .LT. prices(2)) THEN
-                !
-                d(1) = 1.d0
-                !
-            ELSE IF (ABS(prices(1)-prices(2)) .LE. EPSILON(prices(1))) THEN
-                !
-                d(1) = 0.5d0
-                !
-            ELSE
-                ! 
-                d(1) = 0.d0
-                !
-            END IF
-            !
-        ELSE IF (prices(1) .GT. a(1)) THEN
-            !
+        IF ((pp(1) .LT. a(1)) .AND. (pp(2) .LT. a(2)) .AND. (pp(1) .EQ. pp(2))) THEN
+            d(1) = 0.5d0
+        ELSE IF ((pp(1) .LT. a(1)) .AND. (pp(1) .LT. pp(2))) THEN
+            d(1) = 1.d0
+        ELSE IF ((pp(1) .GT. pp(2)) .AND. (pp(2) .LT. a(2))) THEN
             d(1) = 0.d0
-            !
+        ELSE IF ((AreEqualReals(pp(1),a(1))) .AND. (AreEqualReals(pp(2),a(2)))) THEN
+            d(1) = 1.d0/3.d0
+        ELSE IF ((AreEqualReals(pp(1),a(1))) .AND. (pp(2) .GT. a(2))) THEN
+            d(1) = 0.5d0
+        ELSE IF ((pp(1) .GT. a(1)) .AND. (pp(2) .GE. a(2))) THEN
+            d(1) = 0.d0
         END IF
         !
         ! Demand for agent 2
         !
-        IF (prices(2) .LE. a(2)) THEN
-            !
-            IF (prices(2) .LT. prices(1)) THEN
-                !
-                d(2) = 1.d0
-                !
-            ELSE IF (ABS(prices(1)-prices(2)) .LE. EPSILON(prices(1))) THEN
-                !
-                d(2) = 0.5d0
-                !
-            ELSE
-                ! 
-                d(2) = 0.d0
-                !
-            END IF
-            !
-        ELSE IF (prices(2) .GT. a(2)) THEN
-            !
+        IF ((pp(2) .LT. a(2)) .AND. (pp(1) .LT. a(1)) .AND. (pp(2) .EQ. pp(1))) THEN
+            d(2) = 0.5d0
+        ELSE IF ((pp(2) .LT. a(2)) .AND. (pp(2) .LT. pp(1))) THEN
+            d(2) = 1.d0
+        ELSE IF ((pp(2) .GT. pp(1)) .AND. (pp(1) .LT. a(1))) THEN
             d(2) = 0.d0
-            !
+        ELSE IF ((AreEqualReals(pp(2),a(2))) .AND. (AreEqualReals(pp(1),a(1)))) THEN
+            d(2) = 1.d0/3.d0
+        ELSE IF ((AreEqualReals(pp(2),a(2))) .AND. (pp(1) .GT. a(1))) THEN
+            d(2) = 0.5d0
+        ELSE IF ((pp(2) .GT. a(2)) .AND. (pp(1) .GE. a(1))) THEN
+            d(2) = 0.d0
         END IF
-        PI(i,:) = (prices-c)*d
+        !
+        ! Profit
+        !
+        PI(i,:) = (pp-c)*d
         !
     END DO
     !
@@ -402,11 +390,11 @@ CONTAINS
     !
     ! Ending execution and returning control
     !
-    END SUBROUTINE computePIMatricesLogitSigma0
+    END SUBROUTINE computePIMatricesLogitMu0
 !
 ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !
-    FUNCTION logitDemands ( a0, a, c, sigma, p ) 
+    FUNCTION logitDemands ( a0, a, c, mu, p ) 
     !
     ! Computes logit demands
     !
@@ -414,7 +402,7 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
-    REAL(8), INTENT(IN) :: a0, sigma
+    REAL(8), INTENT(IN) :: a0, mu
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: a, c, p
     !
     ! Declaring function's type
@@ -423,8 +411,8 @@ CONTAINS
     !
     ! Beginning execution
     !
-    logitDemands = EXP((a-p)/sigma)
-    logitDemands = logitDemands/(SUM(logitDemands)+EXP(a0/sigma))
+    logitDemands = EXP((a-p)/mu)
+    logitDemands = logitDemands/(SUM(logitDemands)+EXP(a0/mu))
     !
     ! Ending execution and returning control
     !

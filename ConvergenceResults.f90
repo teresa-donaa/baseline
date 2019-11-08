@@ -28,10 +28,9 @@ CONTAINS
     INTEGER :: OptimalStrategyVec(lengthStrategies), LastStateVec(LengthStates)
     INTEGER :: VisitedStates(numPeriods), OptimalStrategy(numStates,numAgents), &
         LastObservedPrices(DepthState,numAgents)
-    INTEGER :: pHist(numPeriods,numAgents), converged(numGames)
-    REAL(8) :: timeToConvergence(numGames)
+    INTEGER :: pHist(numPeriods,numAgents)
     REAL(8) :: Profits(numGames,numAgents), VisitedProfits(numPeriods,numAgents), AvgProfits(numGames)
-    REAL(8), DIMENSION(numAgents) :: meanProfits, seProfit, meanProfitGain, seProfitGain
+    REAL(8), DIMENSION(numAgents) :: meanProfit, seProfit, meanProfitGain, seProfitGain
     REAL(8) :: meanAvgProfit, seAvgProfit, meanAvgProfitGain, seAvgProfitGain
     REAL(8) :: FreqStates(numGames,numStates), meanFreqStates(numStates)
     !
@@ -140,18 +139,18 @@ CONTAINS
             (pHist(:CycleLength,iAgent), iAgent = 1, numAgents), &
             (VisitedProfits(:CycleLength,iAgent), iAgent = 1, numAgents), &
             (OptimalStrategy(iState,:), iState = 1, numStates)
-9961        FORMAT(1X, I8, /, &
+9961    FORMAT(1X, I8, /, &
             1X, I1, /, &
             1X, F9.2, /, &
             1X, I8, /, &
-            <CycleLength>(1X, I<lengthStatesPrint>), /, &
+            <CycleLength>(1X, I<LengthFormatStatesPrint>), /, &
             <numAgents>(<CycleLength>(1X, I<lengthFormatActionPrint>)), /, &
             <numAgents>(<CycleLength>(1X, F8.5)), /, &
             <numStates>(<numAgents>(1X, I<lengthFormatActionPrint>), /))
         !
     END DO        ! End of loop over games
     !
-    CLOSE(UNIT = 999)                   ! Close priceCycles file
+    CLOSE(UNIT = 999)                   ! Close InfoModel file
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Computing averages and descriptive statistics
@@ -192,7 +191,7 @@ CONTAINS
         WRITE(100022,1) &
             (i, i = 1, numAgents), &
             (i, i = 1, numExplorationParameters), (i, i = 1, numAgents), &
-            (i, (j, i, j = 1, 2), i = 1, numAgents), &
+            (i, (j, i, j = 1, numAgents), i = 1, numAgents), &
             (i, i = 1, numDemandParameters), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             (i, i = 1, numAgents), (i, i = 1, numAgents),  &
@@ -203,7 +202,7 @@ CONTAINS
 1       FORMAT('Model ', &
             <numAgents>('    alpha', I1, ' '), &
             <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
-            <numAgents>('typeQini', I1, ' ', <2>('par', I1, 'Qini', I1, ' ')), &
+            <numAgents>('typeQini', I1, ' ', <numAgents>('par', I1, 'Qini', I1, ' ')), &
             <numDemandParameters>('  DemPar', I0.2, ' '), &
             <numAgents>('NashPrice', I1, ' '), <numAgents>('CoopPrice', I1, ' '), &
             <numAgents>('NashProft', I1, ' '), <numAgents>('CoopProft', I1, ' '), &
@@ -211,7 +210,7 @@ CONTAINS
             <numAgents>(<numPrices>('Ag', I1, 'Price', I2.2, ' ')), &
             <numAgents>('  avgProf', I1, 1X, '   seProf', I1, 1X), '   avgProf     seProf ', &
             <numAgents>('avgPrGain', I1, 1X, ' sePrGain', I1, 1X), ' avgPrGain   sePrGain ', &
-            <numStates>(A<MAX(10,3+lengthStatesPrint)>, ' ') &
+            <numStates>(A<MAX(10,3+LengthFormatStatesPrint)>, ' ') &
             )
         !
     END IF
@@ -227,13 +226,13 @@ CONTAINS
         (meanFreqStates(i), i = 1, numStates)
 2   FORMAT(I5, 1X, &
         <numAgents>(F10.5, 1X), <numExplorationParameters>(F10.5, 1X), <numAgents>(F10.5, 1X), &
-        <numAgents>(A9, 1X, <2>(F9.2, 1X)), &
+        <numAgents>(A9, 1X, <numAgents>(F9.2, 1X)), &
         <numDemandParameters>(F10.5, 1X), &
         <6*numAgents>(F10.5, 1X), &
         <numPrices*numAgents>(F10.5, 1X), &
         <2*(numAgents+1)>(F10.5, 1X), &
         <2*(numAgents+1)>(F10.5, 1X), &
-        <numStates>(F<MAX(10,3+lengthStatesPrint)>.6, 1X) &
+        <numStates>(F<MAX(10,3+LengthFormatStatesPrint)>.6, 1X) &
         )
     !
     ! Ending execution and returning control

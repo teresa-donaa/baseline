@@ -34,8 +34,6 @@ CONTAINS
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies
-    INTEGER, DIMENSION(numGames) :: converged
-    REAL(8), DIMENSION(numGames) :: timeToConvergence
     REAL(8), DIMENSION(numAgents) :: pricesGridsPrime
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
     REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
@@ -78,7 +76,7 @@ CONTAINS
     !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
     !$omp   QFileName,iGamesChar) &
     !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
-    !$omp   itersInPerfMeasPeriod,maxIters,printQ,printP,profitgain,codModelChar)
+    !$omp   itersInPerfMeasPeriod,maxIters,printQ,profitgain,codModelChar)
     DO iGame = 1, numGames
         !
         PRINT*, 'iGame = ', iGame
@@ -389,7 +387,7 @@ CONTAINS
     meanTimeToConvergence = SUM(timeToConvergence,MASK = maskConverged)/numGamesConverged
     seTimeToConvergence = &
         SQRT(SUM(timeToConvergence**2,MASK = maskConverged)/numGamesConverged-meanTimeToConvergence**2)
-    medianTimeToConvergence = median(timeToConvergence)
+!    medianTimeToConvergence = median(timeToConvergence)
     !
     ! Print output
     !

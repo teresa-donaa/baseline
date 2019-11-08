@@ -1,10 +1,109 @@
 MODULE generic_routines
 !
+USE ifport
+!
 ! Various generic routines 
 !
 IMPLICIT NONE
 !
 CONTAINS
+! 
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    FUNCTION ComputeRowSummaryStatistics ( m, n, x )
+    !
+    ! Computes summary statistics on a (m x n) REAL(8) matrix X by rows
+    ! Returns a (m x 9) matrix with columns equal to:
+    ! 1: average
+    ! 2: standard deviation
+    ! 3: minimum
+    ! 4: 0.025 percentile
+    ! 5: 0.25 percentile
+    ! 6: 0.5 percentile
+    ! 7: 0.75 percentile
+    ! 8: 0.975 percentile
+    ! 9: maximum
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    ! 
+    INTEGER, INTENT(IN) :: m, n
+    REAL(8), INTENT(IN) :: x(m,n)
+    !
+    ! Declaring function's type
+    !
+    REAL(8) :: ComputeRowSummaryStatistics(m,9)
+    !
+    ! Declaring local variables
+    !
+    INTEGER :: i
+    INTEGER(8) :: n_I8
+    REAL(8) :: tmp_r(n), z(m,n), y(m,9)
+    !
+    ! Beginning execution
+    !
+    ! Mean and standard deviation
+    y(:,1) = SUM(x,DIM = 2)/DBLE(n)
+    y(:,2) = SQRT(ABS(SUM(x**2,DIM = 2)/DBLE(n)-y(:,1)**2))
+    !
+    ! Minimum and maximum
+    y(:,3) = MINVAL(x,DIM = 2)
+    y(:,9) = MAXVAL(x,DIM = 2)
+    !
+    ! Median and other percentiles
+    n_I8 = n
+    DO i = 1, m
+        !
+        tmp_r = x(i,:)
+        CALL SORTQQ(LOC(tmp_r),n_I8,SRT$REAL8)
+        z(i,:) = tmp_r
+        !
+    END DO
+    y(:,4) = z(:,NINT(0.025d0*n))
+    y(:,5) = z(:,NINT(0.25d0*n))
+    y(:,6) = z(:,NINT(0.5d0*n))
+    y(:,7) = z(:,NINT(0.75d0*n))
+    y(:,8) = z(:,NINT(0.975d0*n))
+    !
+    ComputeRowSummaryStatistics = y
+    !
+    ! Ending execution and returning control
+    !
+    END FUNCTION ComputeRowSummaryStatistics
+! 
+! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+    FUNCTION AreEqualReals ( a, b )
+    !
+    ! Tests the equality between a and b, two REAL(8) values
+    ! Returns .TRUE. if a == b, .FALSE. if a != b
+    !
+    IMPLICIT NONE
+    !
+    ! Declaring dummy variables
+    ! 
+    REAL(8), INTENT(IN) :: a, b
+    !
+    ! Declaring function's type
+    !
+    LOGICAL :: AreEqualReals
+    !
+    ! Beginning execution
+    !
+    IF (ABS(a-b) .LE. EPSILON(a)) THEN
+        !
+        AreEqualReals = .TRUE.
+        !
+    ELSE
+        !
+        AreEqualReals = .FALSE.
+        !
+    END IF
+    !
+    ! Ending execution and returning control
+    !
+    END FUNCTION AreEqualReals
 ! 
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
@@ -234,7 +333,7 @@ CONTAINS
     DO i = 1, n
         !
         m = MAXVAL(x)
-        IF (ABS(x(i)-m) .LE. EPSILON(m)) THEN
+        IF (AreEqualReals(x(i),m)) THEN
             !
             h = h+1
             tied(h) = i
