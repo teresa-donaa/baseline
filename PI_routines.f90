@@ -122,12 +122,36 @@ CONTAINS
     !
     ! 3. Compute price grid
     !
-    DO iAgent = 1, numAgents
+    ! Upper and lower bounds
+    !
+    IF (ALL(extend .GT. 0.d0)) THEN
         !
-        PricesGrids(1,iAgent) = MAX(0.d0,NashPrices(iAgent)-extend(1)*(CoopPrices(iAgent)-NashPrices(iAgent)))
-        PricesGrids(numPrices,iAgent) = MAX(0.d0,CoopPrices(iAgent)+extend(2)*(CoopPrices(iAgent)-NashPrices(iAgent)))
+        ! Lower bound = pNash - extend(1)*(pCoop - pNash)
+        ! Upper bound = pCoop + extend(2)*(pCoop - pNash)
         !
-    END DO
+        DO iAgent = 1, numAgents
+            !
+            PricesGrids(1,iAgent) = MAX(0.d0,NashPrices(iAgent)-extend(1)*(CoopPrices(iAgent)-NashPrices(iAgent)))
+            PricesGrids(numPrices,iAgent) = MAX(0.d0,CoopPrices(iAgent)+extend(2)*(CoopPrices(iAgent)-NashPrices(iAgent)))
+            !
+        END DO
+        !
+    ELSE IF ((extend(1) .LT. 0.d0) .AND. (extend(2) .GE. -EPSILON(extend(2)))) THEN
+        !
+        ! Lower bound = 0
+        ! Upper bound = (1+extend(2))*pCoop
+        !
+        DO iAgent = 1, numAgents
+            !
+            PricesGrids(1,iAgent) = 0.d0
+            PricesGrids(numPrices,iAgent) = MAX(0.d0,(1.d0+extend(2))*CoopPrices(iAgent))
+            !
+        END DO
+        !
+    END IF
+    !
+    ! Grids
+    !
     stepPrices = (PricesGrids(numPrices,:)-PricesGrids(1,:))/(numPrices-1)
     DO i = 2, numPrices-1
         !

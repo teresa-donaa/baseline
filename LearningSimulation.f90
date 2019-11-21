@@ -13,7 +13,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE computeModel ( iModel, codModel, alpha, ExplorationParameters, delta )
+    SUBROUTINE computeExperiment ( iExperiment, codExperiment, alpha, ExplorationParameters, delta )
     !
     ! Computes statistics for one model
     !
@@ -21,29 +21,30 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
-    INTEGER, INTENT(IN) :: iModel, codModel
+    INTEGER, INTENT(IN) :: iExperiment, codExperiment
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: alpha, delta
     REAL(8), DIMENSION(numExplorationParameters) :: ExplorationParameters
     !
     ! Declaring local variable
     !
     INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2, idumQ, ivQ(32), iyQ, idum2Q
-    INTEGER :: iIters, iItersFix, i, j, h, l, iGame, iItersInStrategy, convergedGame, numGamesConverged
+    INTEGER :: iIters, iItersFix, i, j, h, l, iSession, iItersInStrategy, convergedSession, numSessionsConverged
     INTEGER :: state, statePrime, stateFix, actionPrime
     INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime, strategyFix
     INTEGER :: pPrime(numAgents), p(DepthState,numAgents)
     INTEGER :: iAgent, iState, iPrice, jAgent
     INTEGER :: minIndexStrategies, maxIndexStrategies
-    INTEGER(8) :: numGames_I8
+    INTEGER(8) :: numSessions_I8
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
-    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
+    REAL(8) :: uIniPrice(DepthState,numAgents,numSessions), uExploration(2,numAgents)
     REAL(8) :: u(2), eps(numAgents)
     REAL(8) :: newq, oldq
     REAL(8) :: meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
     CHARACTER(len = 25) :: QFileName
-    CHARACTER(len = LengthFormatTotModelsPrint) :: iGamesChar, codModelChar
-    CHARACTER(len = 200) :: PTrajectoryFileName
-    LOGICAL :: maskConverged(numGames)
+    CHARACTER(len = LengthFormatTotExperimentsPrint) :: codExperimentChar
+    CHARACTER(len = 10) :: iSessionsChar
+    CHARACTER(len = 6) :: fmt
+    LOGICAL :: maskConverged(numSessions)
     !
     ! Beginning execution
     !
@@ -53,10 +54,11 @@ CONTAINS
     indexStrategies = 0
     indexLastState = 0
     timeToConvergence = 0.d0
-    WRITE(codModelChar,'(I0.<LengthFormatTotModelsPrint>)') codModel
+    WRITE(codExperimentChar,'(I0.<LengthFormatTotExperimentsPrint>)') codExperiment
+    IF (printQ .EQ. 1) WRITE(fmt,'(A, I1, A)') "(I0.", LengthFormatNumSessionsPrint, ")"
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    ! Loop over numGames
+    ! Loop over numSessions
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     !
     ! Generating uIniPrice
@@ -67,19 +69,19 @@ CONTAINS
     iyIP = 0
     CALL generate_uIniPrice(uIniPrice,idumIP,ivIP,iyIP,idum2IP)  
     !
-    ! Starting loop over games
+    ! Starting loop over sessions
     !
     !$ CALL OMP_SET_NUM_THREADS(numCores)
     !$omp parallel do &
     !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
-    !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersFix,iItersInStrategy,convergedGame, &
+    !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iItersFix,iItersInStrategy,convergedSession, &
     !$omp   state,stateFix,strategy,strategyFix,eps,uExploration,u,oldq,newq,iAgent,iState,iPrice,jAgent, &
-    !$omp   QFileName,iGamesChar) &
-    !$omp firstprivate(numGames,PI,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
-    !$omp   itersInPerfMeasPeriod,maxIters,printQ,codModelChar)
-    DO iGame = 1, numGames
+    !$omp   QFileName,iSessionsChar) &
+    !$omp firstprivate(numSessions,PI,delta,uIniPrice,ExplorationParameters,itersPerEpisode,alpha, &
+    !$omp   itersInPerfMeasPeriod,maxIters,printQ,codExperimentChar)
+    DO iSession = 1, numSessions
         !
-        PRINT*, 'Game = ', iGame, ' started'
+        PRINT*, 'Session = ', iSession, ' started'
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! Learning phase
@@ -87,12 +89,12 @@ CONTAINS
         !
         ! Initializing random number generators
         !
-        idum = -iGame
+        idum = -iSession
         idum2 = 123456789
         iv = 0
         iy = 0
         !
-        idumQ = -iGame
+        idumQ = -iSession
         idum2Q = 123456789
         ivQ = 0
         iyQ = 0
@@ -100,20 +102,20 @@ CONTAINS
         ! Initializing Q matrices
         !
         !$omp critical
-        CALL initQMatrices(iGame,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
+        CALL initQMatrices(iSession,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
         !$omp end critical
         strategy = strategyPrime
         !
         ! Randomly initializing prices and state
         !
-        CALL initState(uIniPrice(:,:,iGame),p,statePrime,actionPrime)
+        CALL initState(uIniPrice(:,:,iSession),p,statePrime,actionPrime)
         state = statePrime
         !
         ! Loop
         !
         iIters = 0
         iItersInStrategy = 0
-        convergedGame = -1
+        convergedSession = -1
         IF ((typeExplorationMechanism .EQ. 2) .OR. (typeExplorationMechanism .EQ. 3)) eps = ExplorationParameters(:numAgents)
         IF (typeExplorationMechanism .EQ. 4) eps = ExplorationParameters(:numAgents)
         !
@@ -164,7 +166,7 @@ CONTAINS
             !
             ! Measuring performance
             !
-            IF ((PerfMeasPeriodTime .LE. 0) .AND. ((iIters-1)/itersPerYear .GE. ABS(PerfMeasPeriodTime))) THEN
+            IF ((PerfMeasPeriodTime .LE. 0) .AND. ((iIters-1)/itersPerEpisode .GE. ABS(PerfMeasPeriodTime))) THEN
                 !
                 ! PerfMeasPeriodTime < 0: at convergence after mandatory training of PerfMeasPeriodTime years
                 !
@@ -182,7 +184,7 @@ CONTAINS
                 !
                 ! PerfMeasPeriodTime > 1: Starts right after the completion of year PerfMeasPeriodTime - 1
                 !
-                IF ((PerfMeasPeriodTime .GE. 1) .AND. ((iIters-1)/itersPerYear .GE. (PerfMeasPeriodTime-1))) THEN
+                IF ((PerfMeasPeriodTime .GE. 1) .AND. ((iIters-1)/itersPerEpisode .GE. (PerfMeasPeriodTime-1))) THEN
                     !
                     iItersInStrategy = iItersInStrategy+1
                     !
@@ -192,12 +194,12 @@ CONTAINS
             !
             ! Check for convergence in strategy
             !
-            IF (convergedGame .EQ. -1) THEN
+            IF (convergedSession .EQ. -1) THEN
                 !
                 ! Maximum number of iterations exceeded
                 IF (iIters .GT. maxIters) THEN
                     !
-                    convergedGame = 0
+                    convergedSession = 0
                     strategyFix = strategy
                     stateFix = state
                     iItersFix = iIters
@@ -207,7 +209,7 @@ CONTAINS
                 ! Prescribed number of iterations reached
                 IF ((iItersInStrategy .EQ. itersInPerfMeasPeriod) .AND. (PerfMeasPeriodTime .GE. 1)) THEN
                     !
-                    convergedGame = 0
+                    convergedSession = 0
                     strategyFix = strategy
                     stateFix = state
                     iItersFix = iIters
@@ -217,7 +219,7 @@ CONTAINS
                 ! Convergence in strategy reached
                 IF ((iItersInStrategy .EQ. itersInPerfMeasPeriod) .AND. (PerfMeasPeriodTime .LE. 0)) THEN
                     !
-                    convergedGame = 1
+                    convergedSession = 1
                     strategyFix = strategy
                     stateFix = state
                     iItersFix = iIters
@@ -228,7 +230,7 @@ CONTAINS
             !
             ! Check for loop exit criterion
             !
-            IF (convergedGame .NE. -1) EXIT
+            IF (convergedSession .NE. -1) EXIT
             !
             ! If no convergence yet, update and iterate
             !
@@ -246,53 +248,53 @@ CONTAINS
             ! Open Q matrices output file
             !
             !$omp critical
-            WRITE(iGamesChar,'(I0.5)') iGame
-            QFileName = 'Q_' // TRIM(codModelChar) // '_' // iGamesChar // '.txt'
+            WRITE(iSessionsChar,fmt) iSession
+            QFileName = 'Q_' // TRIM(codExperimentChar) // '_' // TRIM(iSessionsChar) // '.txt'
             !
             ! Write on Q matrices to file
             !
-            OPEN(UNIT = iGame,FILE = QFileName,RECL = 10000)
+            OPEN(UNIT = iSession,FILE = QFileName,RECL = 10000)
             DO iAgent = 1, numAgents
                 !
                 DO iState = 1, numStates
                     !
-                    WRITE(iGame,*) Q(iState,:,iAgent)
+                    WRITE(iSession,*) Q(iState,:,iAgent)
                     !
                 END DO
                 !
             END DO
-            CLOSE(UNIT = iGame)
+            CLOSE(UNIT = iSession)
             !$omp end critical
             !
         END IF
         !
         ! Record results at convergence
         !
-        converged(iGame) = convergedGame
-        timeToConvergence(iGame) = DBLE(iItersFix-itersInPerfMeasPeriod)/itersPerYear
-        indexLastState(:,iGame) = convertNumberBase(stateFix-1,numPrices,LengthStates)
-        indexStrategies(:,iGame) = computeStrategyNumber(strategyFix)
+        converged(iSession) = convergedSession
+        timeToConvergence(iSession) = DBLE(iItersFix-itersInPerfMeasPeriod)/itersPerEpisode
+        indexLastState(:,iSession) = convertNumberBase(stateFix-1,numPrices,LengthStates)
+        indexStrategies(:,iSession) = computeStrategyNumber(strategyFix)
         !
-        IF (convergedGame .EQ. 1) PRINT*, 'Game = ', iGame, ' converged'
-        IF (convergedGame .EQ. 0) PRINT*, 'Game = ', iGame, ' did not converge'
+        IF (convergedSession .EQ. 1) PRINT*, 'Session = ', iSession, ' converged'
+        IF (convergedSession .EQ. 0) PRINT*, 'Session = ', iSession, ' did not converge'
         !
-        ! End of loop over games
+        ! End of loop over sessions
         !
     END DO
     !$omp end parallel do
     !
-    ! Print InfoModel file
+    ! Print InfoExperiment file
     !
-    OPEN(UNIT = 996,FILE = FileNameInfoModel,STATUS = "REPLACE")
-    DO iGame = 1, numGames
+    OPEN(UNIT = 996,FILE = FileNameInfoExperiment,STATUS = "REPLACE")
+    DO iSession = 1, numSessions
         !
-        WRITE(996,*) iGame
-        WRITE(996,*) converged(iGame)
-        WRITE(996,*) timeToConvergence(iGame)
-        WRITE(996,*) indexLastState(:,iGame)
+        WRITE(996,*) iSession
+        WRITE(996,*) converged(iSession)
+        WRITE(996,*) timeToConvergence(iSession)
+        WRITE(996,*) indexLastState(:,iSession)
         DO iState = 1, numStates
             !
-            WRITE(996,*) (indexStrategies((iAgent-1)*numStates+iState,iGame), iAgent = 1, numAgents)
+            WRITE(996,*) (indexStrategies((iAgent-1)*numStates+iState,iSession), iAgent = 1, numAgents)
             !
         END DO
         !
@@ -301,23 +303,23 @@ CONTAINS
     !
     ! Prints the RES output file
     !
-    numGamesConverged = SUM(converged)
+    numSessionsConverged = SUM(converged)
     maskConverged = (converged .EQ. 1)
     meanNashProfit = SUM(NashProfits)/numAgents
     meanCoopProfit = SUM(CoopProfits)/numAgents
     !
     ! Time to convergence
     !
-    meanTimeToConvergence = SUM(timeToConvergence,MASK = maskConverged)/numGamesConverged
+    meanTimeToConvergence = SUM(timeToConvergence,MASK = maskConverged)/numSessionsConverged
     seTimeToConvergence = &
-        SQRT(SUM(timeToConvergence**2,MASK = maskConverged)/numGamesConverged-meanTimeToConvergence**2)
-    numGames_I8 = numGames
-    CALL SORTQQ(LOC(timeToConvergence),numGames_I8,SRT$REAL8)
-    medianTimeToConvergence = timeToConvergence(NINT(0.5d0*numGames))
+        SQRT(SUM(timeToConvergence**2,MASK = maskConverged)/numSessionsConverged-meanTimeToConvergence**2)
+    numSessions_I8 = numSessions
+    CALL SORTQQ(LOC(timeToConvergence),numSessions_I8,SRT$REAL8)
+    medianTimeToConvergence = timeToConvergence(NINT(0.5d0*numSessions))
     !
     ! Print output
     !
-    IF (iModel .EQ. 1) THEN
+    IF (iExperiment .EQ. 1) THEN
         !
         WRITE(10002,891) &
             (i, i = 1, numAgents), &
@@ -328,7 +330,7 @@ CONTAINS
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             (i, i = 1, numAgents), (i, i = 1, numAgents), &
             ((i, j, j = 1, numPrices), i = 1, numAgents)
-891     FORMAT('Model ', &
+891     FORMAT('Experiment ', &
             <numAgents>('    alpha', I1, ' '), &
             <numExplorationParameters>('     beta', I1, ' '), <numAgents>('    delta', I1, ' '), &
             <numAgents>('typeQini', I1, ' ', <numAgents>('par', I1, 'Qini', I1, ' ')), &
@@ -341,13 +343,13 @@ CONTAINS
         !
     END IF
     !
-    WRITE(10002,9911) codModel, &
+    WRITE(10002,9911) codExperiment, &
         alpha, MExpl, delta, &
         (typeQInitialization(i), parQInitialization(i, :), i = 1, numAgents), &
         DemandParameters, &
         NashPrices, CoopPrices, NashProfits, CoopProfits, NashMarketShares, CoopMarketShares, &
         (PricesGrids(:,i), i = 1, numAgents), &
-        numGamesConverged, meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
+        numSessionsConverged, meanTimeToConvergence, seTimeToConvergence, medianTimeToConvergence
 9911 FORMAT(I5, 1X, &
         <numAgents>(F10.5, 1X), <numExplorationParameters>(F10.5, 1X), <numAgents>(F10.5, 1X), &
         <numAgents>(A9, 1X, <numAgents>(F9.2, 1X)), &
@@ -358,7 +360,7 @@ CONTAINS
     !
     ! Ending execution and returning control
     !
-    END SUBROUTINE computeModel
+    END SUBROUTINE computeExperiment
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !

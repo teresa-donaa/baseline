@@ -16,7 +16,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE computeLearningTrajectory ( iModel, codModel, alpha, ExplorationParameters, delta )
+    SUBROUTINE computeLearningTrajectory ( iExperiment, codExperiment, alpha, ExplorationParameters, delta )
     !
     ! Computes statistics for one model
     !
@@ -24,30 +24,30 @@ CONTAINS
     !
     ! Declaring dummy variables
     !
-    INTEGER, INTENT(IN) :: iModel, codModel
+    INTEGER, INTENT(IN) :: iExperiment, codExperiment
     REAL(8), DIMENSION(numAgents), INTENT(IN) :: alpha, delta
     REAL(8), DIMENSION(numExplorationParameters) :: ExplorationParameters
     !
     ! Declaring local variable
     !
     INTEGER :: idumIP, ivIP(32), iyIP, idum2IP, idum, iv(32), iy, idum2, idumQ, ivQ(32), iyQ, idum2Q
-    INTEGER :: iIters, i, j, h, l, iGame, iAgent, jAgent, iCycle, iPrice, ss0, ss1
+    INTEGER :: iIters, i, j, h, l, iSession, iAgent, jAgent, iCycle, iPrice, ss0, ss1
     INTEGER, DIMENSION(DepthState,numAgents) :: p, pLT1
     INTEGER, DIMENSION(numAgents) :: pPrime, pPrimeLT1, pPrimeLT2
     INTEGER :: state, statePrime, actionPrime
     INTEGER, DIMENSION(numStates,numAgents) :: strategy, strategyPrime
-    INTEGER(8) :: numGames_I8
-    INTEGER :: CycleLengthGame, CycleStatesGame(numPeriods)
+    INTEGER(8) :: numSessions_I8
+    INTEGER :: CycleLengthSession, CycleStatesSession(numPeriods)
     INTEGER, DIMENSION(numPeriods) :: NUVisitedStates
     INTEGER :: NUPreCycleLength, NUCycleLength
     !
     REAL(8), DIMENSION(numStates,numPrices,numAgents) :: Q
-    REAL(8) :: uIniPrice(DepthState,numAgents,numGames), uExploration(2,numAgents)
+    REAL(8) :: uIniPrice(DepthState,numAgents,numSessions), uExploration(2,numAgents)
     REAL(8) :: u(2), eps(numAgents)
     REAL(8) :: newq, oldq, profitgain(numAgents)
-    REAL(8), DIMENSION(ParamsLearningTrajectory(1),numGames) :: PGmat, ICmat, IRmat
+    REAL(8), DIMENSION(ParamsLearningTrajectory(1),numSessions) :: PGmat, ICmat, IRmat
     REAL(8), DIMENSION(ParamsLearningTrajectory(1),9) :: PGss, ICss, IRss
-    REAL(8) :: tmp_r(numGames), PGsum, ICsum, IRsum
+    REAL(8) :: tmp_r(numSessions), PGsum, ICsum, IRsum
     REAL(8) :: QRowValues(numPrices), avgPRatio
     REAL(8) :: NUPIStaticBR
     !
@@ -57,7 +57,7 @@ CONTAINS
     !
     ! Reading strategies and states at convergence from file
     !
-    CALL ReadInfoModel()
+    CALL ReadInfoExperiment()
     !
     ! Initializing various quantities
     !
@@ -65,7 +65,7 @@ CONTAINS
     PGss = 0.d0
     !
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    ! Loop over numGames
+    ! Loop over numSessions
     ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     !
     !$ CALL OMP_SET_NUM_THREADS(numCores)
@@ -78,23 +78,23 @@ CONTAINS
     iyIP = 0
     CALL generate_uIniPrice(uIniPrice,idumIP,ivIP,iyIP,idum2IP)  
     !
-    ! Starting loop over games
+    ! Starting loop over sessions
     !
     !$omp parallel do &
     !$omp private(idum,iv,iy,idum2,idumQ,ivQ,iyQ,idum2Q,Q,maxValQ, &
     !$omp   strategyPrime,pPrime,p,statePrime,actionPrime,iIters,iCycle,ss0,ss1, &
     !$omp   pLT1,pPrimeLT1,pPrimeLT2, &
-    !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,jAgent,CycleLengthGame,CycleStatesGame, &
+    !$omp   state,strategy,eps,uExploration,u,oldq,newq,iAgent,jAgent,CycleLengthSession,CycleStatesSession, &
     !$omp   NUVisitedStates,NUPreCycleLength,NUCycleLength,NUPIStaticBR, &
     !$omp   PGsum,QRowValues,ICsum,avgPRatio,IRsum) &
-    !$omp firstprivate(numGames,PI,PG,delta,uIniPrice,ExplorationParameters,itersPerYear,alpha, &
+    !$omp firstprivate(numSessions,PI,PG,delta,uIniPrice,ExplorationParameters,itersPerEpisode,alpha, &
     !$omp   itersInPerfMeasPeriod,maxIters,profitgain)
-    DO iGame = 1, numGames
+    DO iSession = 1, numSessions
         !
-        PRINT*, 'Game = ', iGame, ' started'
-        CycleLengthGame = CycleLength(iGame)
-        CycleStatesGame = 0
-        CycleStatesGame(1:CycleLengthGame) = CycleStates(:,iGame)
+        PRINT*, 'Session = ', iSession, ' started'
+        CycleLengthSession = CycleLength(iSession)
+        CycleStatesSession = 0
+        CycleStatesSession(1:CycleLengthSession) = CycleStates(:,iSession)
         !
         ! %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         ! Learning phase
@@ -102,12 +102,12 @@ CONTAINS
         !
         ! Initializing random number generators
         !
-        idum = -iGame
+        idum = -iSession
         idum2 = 123456789
         iv = 0
         iy = 0
         !
-        idumQ = -iGame
+        idumQ = -iSession
         idum2Q = 123456789
         ivQ = 0
         iyQ = 0
@@ -115,13 +115,13 @@ CONTAINS
         ! Initializing Q matrices
         !
         !$omp critical
-        CALL initQMatrices(iGame,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
+        CALL initQMatrices(iSession,idumQ,ivQ,iyQ,idum2Q,PI,delta,Q,maxValQ,strategyPrime)
         !$omp end critical
         strategy = strategyPrime
         !
         ! Randomly initializing prices and state
         !
-        CALL initState(uIniPrice(:,:,iGame),p,statePrime,actionPrime)
+        CALL initState(uIniPrice(:,:,iSession),p,statePrime,actionPrime)
         state = statePrime
         !
         ! Loop
@@ -157,14 +157,14 @@ CONTAINS
             IF (MOD(iIters,ParamsLearningTrajectory(2)) .EQ. 0) THEN
                 !
                 ! Profit Gain
-                PGmat(iIters/ParamsLearningTrajectory(2),iGame) = &
-                    PGmat(iIters/ParamsLearningTrajectory(2),iGame)+PGsum/DBLE(ParamsLearningTrajectory(2))
+                PGmat(iIters/ParamsLearningTrajectory(2),iSession) = &
+                    PGmat(iIters/ParamsLearningTrajectory(2),iSession)+PGsum/DBLE(ParamsLearningTrajectory(2))
                 PGsum = 0.d0
                 !
                 ! Incentive Compatibility
-                DO iCycle = 1, CycleLengthGame      ! Loop over states in path at convergence
+                DO iCycle = 1, CycleLengthSession      ! Loop over states in path at convergence
                     !
-                    ss1 = CycleStatesGame(iCycle)
+                    ss1 = CycleStatesSession(iCycle)
                     DO iAgent = 1, numAgents        ! Loop over agents
                         !
                         DO iPrice = 1, numPrices    ! Loop over prices
@@ -175,21 +175,21 @@ CONTAINS
                             !
                         END DO
                         IF (AreEqualReals(MAXVAL(QRowValues),QrowValues(strategy(ss1,iAgent)))) &
-                            ICsum = ICsum+1.d0/DBLE(numAgents*CycleLengthGame)
+                            ICsum = ICsum+1.d0/DBLE(numAgents*CycleLengthSession)
                         !
                     END DO
                     !
                 END DO
-                ICmat(iIters/ParamsLearningTrajectory(2),iGame) = ICsum
+                ICmat(iIters/ParamsLearningTrajectory(2),iSession) = ICsum
                 ICsum = 0.d0
                 !
                 ! Punishment from nondeviating agent in period t+2
-                DO iCycle = 1, CycleLengthGame      ! Loop over states in path at convergence
+                DO iCycle = 1, CycleLengthSession      ! Loop over states in path at convergence
                     !
                     DO iAgent = 1, numAgents        ! Loop over agents
                         !
                         ! Period t: Initial state
-                        ss0 = CycleStatesGame(iCycle)   
+                        ss0 = CycleStatesSession(iCycle)   
                         pLT1 = RESHAPE(convertNumberBase(ss0-1,numPrices,LengthStates),(/ DepthState,numAgents /))
                         !
                         ! Period t+1: Shock to static best response
@@ -209,12 +209,12 @@ CONTAINS
                             !
                         END DO
                         avgPRatio = avgPRatio/DBLE(numAgents-1)
-                        IRsum = IRsum+avgPRatio/DBLE(numAgents*CycleLengthGame)                    
+                        IRsum = IRsum+avgPRatio/DBLE(numAgents*CycleLengthSession)                    
                         !
                     END DO
                     !
                 END DO
-                IRmat(iIters/ParamsLearningTrajectory(2),iGame) = IRsum
+                IRmat(iIters/ParamsLearningTrajectory(2),iSession) = IRsum
                 IRsum = 0.d0
                 !
             END IF
@@ -252,20 +252,20 @@ CONTAINS
             !
         END DO
         !
-        ! End of loop over games
+        ! End of loop over sessions
         !
     END DO
     !$omp end parallel do
     !
     ! Compute statistics on PG and IC trajectories
     !
-    PGss = ComputeRowSummaryStatistics(ParamsLearningTrajectory(1),numGames,PGmat)
-    ICss = ComputeRowSummaryStatistics(ParamsLearningTrajectory(1),numGames,ICmat)
-    IRss = ComputeRowSummaryStatistics(ParamsLearningTrajectory(1),numGames,IRmat)
+    PGss = ComputeRowSummaryStatistics(ParamsLearningTrajectory(1),numSessions,PGmat)
+    ICss = ComputeRowSummaryStatistics(ParamsLearningTrajectory(1),numSessions,ICmat)
+    IRss = ComputeRowSummaryStatistics(ParamsLearningTrajectory(1),numSessions,IRmat)
     !
     ! File name
     !
-    LTrajectoryFileName = 'LTrajectories_' // ModelNumber 
+    LTrajectoryFileName = 'LTrajectories_' // ExperimentNumber 
     OPEN(UNIT = 9,FILE = LTrajectoryFileName,STATUS = "REPLACE")
     WRITE(9,8) 
 8   FORMAT('         iter ', &

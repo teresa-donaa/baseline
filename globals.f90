@@ -13,17 +13,17 @@ INTEGER, PARAMETER :: numThresCycleLength = 10
 !
 ! Variables
 !
-INTEGER :: numModels, totModels, numCores, numGames, itersPerYear, maxNumYears, maxIters, &
-    itersInPerfMeasPeriod, printQ, codModel, PerfMeasPeriodTime, numPrices, &
+INTEGER :: numExperiments, totExperiments, numCores, numSessions, itersPerEpisode, maxNumEpisodes, maxIters, &
+    itersInPerfMeasPeriod, printQ, codExperiment, PerfMeasPeriodTime, numPrices, &
     typeExplorationMechanism, DepthState0, DepthState, LengthStates, numStates, lengthStrategies, &
-    LengthFormatStatesPrint, LengthFormatActionPrint, LengthFormatTotModelsPrint, &
+    LengthFormatStatesPrint, LengthFormatActionPrint, LengthFormatTotExperimentsPrint,LengthFormatNumSessionsPrint, &
     typePayoffInput, numAgents, numActions, numDemandParameters, numPeriods, &
     numExplorationParameters, SwitchQLearningResults, SwitchConvergenceResults, &
     SwitchImpulseResponseToBR, SwitchImpulseResponseToNash, SwitchImpulseResponseToAll, &
     SwitchEquilibriumCheck, SwitchQGapToMaximum, ParamsLearningTrajectory(2), &
-    SwitchDetailedAnalysis, SwitchRestart
+    SwitchDetailedAnalysis
 REAL(8) :: PerfMeasPeriodLength, meanNashProfit, meanCoopProfit, gammaSinghVives, SlackOnPath, SlackOffPath
-CHARACTER(len = 50) :: ModelNumber, FileNameInfoModel, ModelName
+CHARACTER(len = 50) :: ExperimentNumber, FileNameInfoExperiment, ExperimentName
 !
 INTEGER, ALLOCATABLE :: converged(:), indexStrategies(:,:), indexLastState(:,:), CycleLength(:), &
     CycleStates(:,:), CyclePrices(:,:,:), &
@@ -63,15 +63,15 @@ CONTAINS
     ! Beginning execution
     !
     READ(unitNumber,'(1X)') 
-    READ(unitNumber,*) numModels, totModels
+    READ(unitNumber,*) numExperiments, totExperiments
     READ(unitNumber,'(1X)') 
     READ(unitNumber,*) numCores
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) numGames
+    READ(unitNumber,*) numSessions
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) itersPerYear
+    READ(unitNumber,*) itersPerEpisode
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) maxNumYears
+    READ(unitNumber,*) maxNumEpisodes
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) PerfMeasPeriodTime
     READ(unitNumber,'(1X)')
@@ -86,9 +86,10 @@ CONTAINS
     !
     ! Global variables
     !
-    LengthFormatTotModelsPrint = 1+INT(LOG10(DBLE(totModels)))
-    maxIters = maxNumYears*itersPerYear
-    itersInPerfMeasPeriod = INT(PerfMeasPeriodLength*itersPerYear)
+    LengthFormatTotExperimentsPrint = 1+INT(LOG10(DBLE(totExperiments)))
+    LengthFormatNumSessionsPrint = 1+INT(LOG10(DBLE(numSessions)))
+    maxIters = maxNumEpisodes*itersPerEpisode
+    itersInPerfMeasPeriod = INT(PerfMeasPeriodLength*itersPerEpisode)
     LengthStates = MAX(1,numAgents*DepthState0)
     LengthFormatStatesPrint = LengthStates*(1+FLOOR(LOG10(DBLE(numPrices))))+LengthStates-1
     numStates = numPrices**(numAgents*DepthState0)
@@ -134,15 +135,13 @@ CONTAINS
     READ(unitNumber,'(1X)')
     READ(unitNumber,*) SwitchDetailedAnalysis
     READ(unitNumber,'(1X)')
-    READ(unitNumber,*) SwitchRestart
-    READ(unitNumber,'(1X)')
     !
     ! Allocating matrices and vectors
     !
-    ALLOCATE(converged(numGames),timeToConvergence(numGames), &
-        indexStrategies(lengthStrategies,numGames),indexLastState(lengthStates,numGames), &
-        CycleLength(numGames),CycleStates(numPeriods,numGames), &
-        CyclePrices(numAgents,numPeriods,numGames),CycleProfits(numAgents,numPeriods,numGames), &
+    ALLOCATE(converged(numSessions),timeToConvergence(numSessions), &
+        indexStrategies(lengthStrategies,numSessions),indexLastState(lengthStates,numSessions), &
+        CycleLength(numSessions),CycleStates(numPeriods,numSessions), &
+        CyclePrices(numAgents,numPeriods,numSessions),CycleProfits(numAgents,numPeriods,numSessions), &
         indexActions(numActions,numAgents), &
         cStates(LengthStates),cActions(numAgents),DiscountFactors(0:numStates,numAgents), &
         maxValQ(numStates,numAgents), DemandParameters(numDemandParameters), &
@@ -198,7 +197,7 @@ CONTAINS
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
-    SUBROUTINE readModelVariables ( unitNumber )
+    SUBROUTINE readExperimentVariables ( unitNumber )
     !
     ! Reads input variables
     !
@@ -214,20 +213,20 @@ CONTAINS
     !
     ! Beginning execution
     !
-    READ(unitNumber,*) codModel, printQ, alpha, MExpl, delta, &
+    READ(unitNumber,*) codExperiment, printQ, alpha, MExpl, delta, &
         DemandParameters, NashPrices, CoopPrices, &
         (typeQInitialization(i), parQInitialization(i,:), i = 1, numAgents)
     IF (typeExplorationMechanism .EQ. 2) THEN
         !
         ExplorationParameters(:numAgents) = MExpl(:numAgents)
-        ExplorationParameters(numAgents+1:) = EXP(-MExpl(numAgents+1:)/DBLE(itersPerYear))
+        ExplorationParameters(numAgents+1:) = EXP(-MExpl(numAgents+1:)/DBLE(itersPerEpisode))
         !
     ELSE IF (typeExplorationMechanism .EQ. 3) THEN
         !
         ExplorationParameters(:numAgents) = MExpl(:numAgents)
-        ExplorationParameters(numAgents+1:) = -DBLE(itersPerYear)/DBLE(numAgents+1)* &
+        ExplorationParameters(numAgents+1:) = -DBLE(itersPerEpisode)/DBLE(numAgents+1)* &
             LOG(1.d0-(DBLE(numPrices-1)/DBLE(numPrices))**numAgents/(DBLE(numStates*numPrices)*MExpl(numAgents+1:)))
-        ExplorationParameters(numAgents+1:) = EXP(-ExplorationParameters(numAgents+1:)/DBLE(itersPerYear))
+        ExplorationParameters(numAgents+1:) = EXP(-ExplorationParameters(numAgents+1:)/DBLE(itersPerEpisode))
         !
     ELSE IF (typeExplorationMechanism .EQ. 4) THEN
         !
@@ -239,7 +238,7 @@ CONTAINS
     !
     ! Ending execution and returning control
     !
-    END SUBROUTINE readModelVariables
+    END SUBROUTINE readExperimentVariables
 !
 ! &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !
